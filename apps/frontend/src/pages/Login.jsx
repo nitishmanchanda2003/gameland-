@@ -120,16 +120,15 @@ const styles = {
   },
 
   bigGlow: {
-  position: "fixed",
-  top: "-40%",
-  left: "-30%",
-  width: "200%",
-  height: "200%",
-  background: "radial-gradient(circle, rgba(96,165,250,0.15), transparent 70%)",
-  filter: "blur(130px)",
-  zIndex: -1,
-  pointerEvents: "none",
-},
+    position: "absolute",
+    top: "-40%",
+    left: "-30%",
+    width: "200%",
+    height: "200%",
+    background: "radial-gradient(circle, rgba(96,165,250,0.15), transparent 70%)",
+    filter: "blur(130px)",
+    zIndex: 0,
+  },
 
   card: {
     width: "100%",
