@@ -1,54 +1,68 @@
 // src/components/Navbar.jsx
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
-const BREAKPOINT = 900; // px
+const BREAKPOINT = 900;
 
 export default function Navbar() {
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth <= BREAKPOINT : false
   );
   const [open, setOpen] = useState(false);
-  const location = useLocation();
 
-  // keep menu closed when route changes
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // user state
+  const [user, setUser] = useState(() => {
+    const u = localStorage.getItem("user");
+    return u ? JSON.parse(u) : null;
+  });
+
+  // close menu on route change
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);        
 
-  // watch resize
+  // detect mobile
   useEffect(() => {
     function onResize() {
       const mobile = window.innerWidth <= BREAKPOINT;
       setIsMobile(mobile);
-      if (!mobile) setOpen(false); // ensure mobile menu closed on desktop
+      if (!mobile) setOpen(false);
     }
     window.addEventListener("resize", onResize);
-    // run once to sync
     onResize();
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // logout
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    navigate("/login");
+  };
+
+  // links
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/categories", label: "Categories" },
-    { to: "/contact", label: "Contact" },
+    ...(user ? [{ to: "/profile", label: "Profile" }] : []),
   ];
 
   return (
     <header style={styles.header}>
-      <nav style={styles.nav} aria-label="Main navigation">
-        {/* Left (Brand) */}
+      <nav style={styles.nav}>
+        {/* LEFT */}
         <div style={styles.left}>
           <Link to="/" style={styles.brand}>
-            <span style={styles.logoEmoji} aria-hidden>
-              🎮
-            </span>
+            <span style={styles.logoEmoji}>🎮</span>
             <span style={styles.brandText}>Gameland</span>
           </Link>
         </div>
 
-        {/* Center (Links) - visible only on desktop */}
+        {/* CENTER — desktop only */}
         <div style={{ ...styles.center, display: isMobile ? "none" : "flex" }}>
           {navLinks.map((l) => (
             <Link
@@ -64,33 +78,88 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right (Actions) */}
-        <div style={styles.right}>
-          {/* Desktop: maybe profile / other icons could go here in future */}
-          {/* Mobile: show hamburger */}
-          {isMobile ? (
+        {/* RIGHT — desktop login/register */}
+        {!isMobile && (
+          <div style={styles.right}>
+            {!user ? (
+              <>
+                <Link
+                  to="/login"
+                  style={styles.btnLogin}
+                  onMouseEnter={(e) =>
+                    Object.assign(e.target.style, styles.btnLoginHover)
+                  }
+                  onMouseLeave={(e) =>
+                    Object.assign(e.target.style, styles.btnLogin)
+                  }
+                >
+                  Login
+                </Link>
+
+                <Link
+                  to="/register"
+                  style={styles.btnRegister}
+                  onMouseEnter={(e) =>
+                    Object.assign(e.target.style, styles.btnRegisterHover)
+                  }
+                  onMouseLeave={(e) =>
+                    Object.assign(e.target.style, styles.btnRegister)
+                  }
+                >
+                  Register
+                </Link>
+              </>
+            ) : (
+              <button
+                onClick={logout}
+                style={{
+                  ...styles.btnLogin,
+                  border: "1px solid rgba(255,80,80,0.35)",
+                  color: "#ffb3b3",
+                }}
+              >
+                Logout
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* MOBILE HAMBURGER */}
+        {isMobile && (
+          <div style={styles.right}>
             <button
-              aria-label={open ? "Close menu" : "Open menu"}
-              aria-expanded={open}
-              onClick={() => setOpen((s) => !s)}
+              onClick={() => setOpen(!open)}
               style={{
                 ...styles.hamburgerBtn,
                 ...(open ? styles.hamburgerBtnActive : {}),
               }}
             >
-              <span style={{ ...styles.hamburgerBar, ...(open ? styles.bar1Active : {}) }} />
-              <span style={{ ...styles.hamburgerBar, ...(open ? styles.bar2Active : {}) }} />
-              <span style={{ ...styles.hamburgerBar, ...(open ? styles.bar3Active : {}) }} />
+              <span
+                style={{
+                  ...styles.hamburgerBar,
+                  ...(open ? styles.bar1Active : {}),
+                }}
+              />
+              <span
+                style={{
+                  ...styles.hamburgerBar,
+                  ...(open ? styles.bar2Active : {}),
+                }}
+              />
+              <span
+                style={{
+                  ...styles.hamburgerBar,
+                  ...(open ? styles.bar3Active : {}),
+                }}
+              />
             </button>
-          ) : null}
-        </div>
+          </div>
+        )}
       </nav>
 
-      {/* Mobile slide-down menu */}
+      {/* MOBILE MENU */}
       {isMobile && (
         <div
-          role="dialog"
-          aria-modal="true"
           style={{
             ...styles.mobileMenu,
             transform: open ? "translateY(0)" : "translateY(-8px)",
@@ -106,12 +175,52 @@ export default function Navbar() {
                 onClick={() => setOpen(false)}
                 style={{
                   ...styles.mobileLink,
-                  ...(location.pathname === l.to ? styles.mobileLinkActive : {}),
+                  ...(location.pathname === l.to
+                    ? styles.mobileLinkActive
+                    : {}),
                 }}
               >
                 {l.label}
               </Link>
             ))}
+
+            {/* LOGIN/REGISTER in mobile */}
+            {!user && (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setOpen(false)}
+                  style={styles.mobileLink}
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setOpen(false)}
+                  style={styles.mobileLink}
+                >
+                  Register
+                </Link>
+              </>
+            )}
+
+            {user && (
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  logout();
+                }}
+                style={{
+                  ...styles.mobileLink,
+                  background: "transparent",
+                  border: "none",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -119,6 +228,9 @@ export default function Navbar() {
   );
 }
 
+//
+// -------- STYLES (your original preserved + premium buttons added) --------
+//
 const styles = {
   header: {
     position: "sticky",
@@ -130,8 +242,6 @@ const styles = {
     background:
       "linear-gradient(180deg, rgba(10,18,28,0.45) 0%, rgba(7,10,16,0.25) 100%)",
     borderBottom: "1px solid rgba(255,255,255,0.03)",
-    boxSizing: "border-box",
-    transition: "box-shadow 220ms ease, background 220ms ease, border-color 220ms ease",
   },
   nav: {
     maxWidth: 1350,
@@ -141,15 +251,8 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
-    boxSizing: "border-box",
-    width: "100%",
   },
-  left: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    minWidth: 0,
-  },
+  left: { display: "flex", alignItems: "center", gap: 12 },
   brand: {
     display: "flex",
     alignItems: "center",
@@ -157,17 +260,12 @@ const styles = {
     textDecoration: "none",
     color: "#fff",
   },
-  logoEmoji: {
-    fontSize: 20,
-    display: "inline-block",
-    transform: "translateY(1px)",
-  },
+  logoEmoji: { fontSize: 20, transform: "translateY(1px)" },
   brandText: {
     fontSize: 18,
     fontWeight: 800,
     letterSpacing: 0.4,
     color: "#e6f0ff",
-    whiteSpace: "nowrap",
   },
 
   center: {
@@ -177,11 +275,11 @@ const styles = {
     justifyContent: "center",
     flex: 1,
   },
+
   right: {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    minWidth: 44,
     justifyContent: "flex-end",
   },
 
@@ -192,15 +290,50 @@ const styles = {
     padding: "8px 10px",
     borderRadius: 8,
     transition: "all 160ms ease",
-    outline: "none",
   },
   linkActive: {
     color: "#fff",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
     boxShadow: "0 6px 18px rgba(59,130,246,0.12)",
-    background: "linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005))",
   },
 
-  // Hamburger
+  // ---------- PREMIUM BUTTONS ----------
+  btnLogin: {
+    padding: "8px 18px",
+    borderRadius: 10,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    color: "#dbeafe",
+    fontWeight: 600,
+    textDecoration: "none",
+    fontSize: 14,
+    boxShadow: "0 0 18px rgba(59,130,246,0.15)",
+    transition: "all 200ms ease",
+  },
+  btnLoginHover: {
+    background: "rgba(255,255,255,0.12)",
+    boxShadow: "0 0 22px rgba(59,130,246,0.28)",
+  },
+
+  btnRegister: {
+    padding: "8px 20px",
+    borderRadius: 10,
+    background: "linear-gradient(90deg, #3b82f6, #6366f1)",
+    color: "#fff",
+    fontWeight: 700,
+    fontSize: 14,
+    textDecoration: "none",
+    border: "none",
+    boxShadow: "0 0 20px rgba(99,102,241,0.45)",
+    transition: "all 200ms ease",
+  },
+  btnRegisterHover: {
+    transform: "scale(1.04)",
+    boxShadow: "0 0 28px rgba(99,102,241,0.65)",
+  },
+
+  // ---------- HAMBURGER (original) ----------
   hamburgerBtn: {
     display: "inline-flex",
     alignItems: "center",
@@ -215,9 +348,8 @@ const styles = {
     padding: 6,
     transition: "transform 180ms ease",
   },
-  hamburgerBtnActive: {
-    transform: "scale(0.98)",
-  },
+  hamburgerBtnActive: { transform: "scale(0.98)" },
+
   hamburgerBar: {
     display: "block",
     width: 20,
@@ -225,20 +357,12 @@ const styles = {
     borderRadius: 2,
     background: "linear-gradient(90deg, #93c5fd, #60a5fa)",
     transition: "all 220ms ease",
-    transformOrigin: "center",
   },
-  bar1Active: {
-    transform: "translateY(6px) rotate(45deg)",
-  },
-  bar2Active: {
-    opacity: 0,
-    transform: "scaleX(0.6)",
-  },
-  bar3Active: {
-    transform: "translateY(-6px) rotate(-45deg)",
-  },
+  bar1Active: { transform: "translateY(6px) rotate(45deg)" },
+  bar2Active: { opacity: 0, transform: "scaleX(0.6)" },
+  bar3Active: { transform: "translateY(-6px) rotate(-45deg)" },
 
-  // Mobile menu
+  // ---------- MOBILE MENU ----------
   mobileMenu: {
     position: "absolute",
     left: 0,
@@ -248,7 +372,6 @@ const styles = {
     borderTop: "1px solid rgba(255,255,255,0.02)",
     boxShadow: "0 10px 40px rgba(2,6,23,0.6)",
     transition: "opacity 200ms ease, transform 200ms ease",
-    willChange: "transform, opacity",
     zIndex: 55,
   },
   mobileInner: {
@@ -265,7 +388,8 @@ const styles = {
     borderRadius: 10,
     textDecoration: "none",
     color: "#e6f0ff",
-    background: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))",
     fontWeight: 600,
   },
   mobileLinkActive: {

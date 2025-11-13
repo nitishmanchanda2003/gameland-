@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Routes, Route } from "react-router-dom";
 
 // Components
@@ -10,49 +10,28 @@ import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Categories from "./pages/Categories";
 import GameDetail from "./pages/GameDetail";
-
-// Backend API
-import { getTestData } from "./services/api";
+import Login from "./pages/Login";        // ⭐ NEW
+import Register from "./pages/Register";  // ⭐ NEW
 
 function App() {
-  // const [message, setMessage] = useState("");
-
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       const data = await getTestData();
-  //       if (data) setMessage(data.message);
-  //     } catch (error) {
-  //       console.error("Backend Error:", error);
-  //       setMessage("Failed to connect to backend.");
-  //     }
-  //   };
-  //   fetchData();
-  // }, []);
-
   return (
     <div style={styles.appWrapper}>
       <Navbar />
 
       <main style={styles.container}>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <>
-                {/* <h1 style={styles.title}>Welcome to Gameland 🎮</h1>
-                <p style={styles.message}>
-                  {message || "Loading backend connection..."}
-                </p> */}
+          {/* HOME */}
+          <Route path="/" element={<Home />} />
 
-                <Home />
-              </>
-            }
-          />
-
+          {/* CATEGORIES */}
           <Route path="/categories" element={<Categories />} />
 
+          {/* GAME DETAILS */}
           <Route path="/game/:gameId" element={<GameDetail />} />
+
+          {/* AUTH PAGES */}
+          <Route path="/login" element={<Login />} />         {/* ⭐ */}
+          <Route path="/register" element={<Register />} />   {/* ⭐ */}
         </Routes>
       </main>
 
@@ -65,8 +44,8 @@ const styles = {
   appWrapper: {
     background: "#0f172a",
     minHeight: "100vh",
-    width: "100vw",        // ensure full viewport width
-    overflowX: "hidden",   // prevent horizontal overflow
+    width: "100vw",
+    overflowX: "hidden",
     boxSizing: "border-box",
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
     color: "#fff",
@@ -78,16 +57,6 @@ const styles = {
     width: "100%",
     boxSizing: "border-box",
     flex: 1,
-  },
-  title: {
-    color: "#fff",
-    textAlign: "center",
-    margin: "10px 0 5px",
-  },
-  message: {
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: "30px",
   },
 };
 
