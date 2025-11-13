@@ -15,10 +15,22 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
   },
 
+  // ⭐ For Google Login (no password required)
+  googleId: {
+    type: String,
+    default: null,
+  },
+
+  picture: {
+    type: String,
+    default: null,
+  },
+
+  // ⭐ Normal Login (email/password)
   password: {
     type: String,
-    required: true,
     minlength: 6,
+    default: null,   // google users ke liye password null rahega
   },
 
   role: {
@@ -33,5 +45,4 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// Export Model
 export default mongoose.model("User", userSchema);

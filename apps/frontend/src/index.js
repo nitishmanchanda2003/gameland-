@@ -1,21 +1,29 @@
 // src/index.js
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import App from './App';
-import './index.css';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import App from "./App";
+import "./index.css";
 
-// ⭐ ADD THIS
+// ⭐ AUTH CONTEXT
 import { AuthProvider } from "./context/AuthContext";
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+// ⭐ GOOGLE AUTH PROVIDER
+import { GoogleOAuthProvider } from "@react-oauth/google";
+
+// ⭐ Load Client ID from .env
+const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      {/* ⭐ Wrap entire app inside AuthProvider */}
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
+    <GoogleOAuthProvider clientId={clientId}>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );

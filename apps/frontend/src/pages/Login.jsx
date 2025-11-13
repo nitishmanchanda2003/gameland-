@@ -2,11 +2,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../services/api";
-import { useAuth } from "../context/AuthContext";   // ⭐ AUTH
+
+// GOOGLE AUTH
+import { GoogleLogin } from "@react-oauth/google";
+
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth(); // ⭐ useAuth
+  const { login } = useAuth();
 
   const [animate, setAnimate] = useState(false);
   const [email, setEmail] = useState("");
@@ -14,12 +18,16 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setAnimate(true), 80);
     return () => clearTimeout(t);
   }, []);
 
+  /***************************
+   *  NORMAL LOGIN
+   ***************************/
   const handleLogin = async () => {
     setErrorMsg("");
 
@@ -33,7 +41,6 @@ export default function Login() {
 
       const res = await loginUser({ email, password });
 
-      // ⭐ Save user globally
       login(res.data.user, res.data.token);
 
       navigate("/");
@@ -42,6 +49,42 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  /***************************
+   *  GOOGLE LOGIN (SECURE)
+   ***************************/
+  const handleGoogleSuccess = async (cred) => {
+    try {
+      setLoading(true);
+
+      const res = await fetch("http://localhost:5000/api/auth/google-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          credential: cred.credential, // ⭐ only send the token
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!json.token) {
+        setErrorMsg(json.message || "Google login failed");
+        return;
+      }
+
+      login(json.user, json.token);
+      navigate("/");
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Google login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setErrorMsg("Google login failed. Try again.");
   };
 
   return (
@@ -56,11 +99,28 @@ export default function Login() {
         }}
       >
         <div style={styles.logoCircle}>🎮</div>
-        <h2 style={styles.title}>Gameland</h2>
+        <h2 style={styles.title}>Welcome Back</h2>
         <p style={styles.sub}>Sign in to continue</p>
 
         {errorMsg && <div style={styles.errorBox}>{errorMsg}</div>}
+        {successMsg && <div style={styles.successBox}>{successMsg}</div>}
 
+        {/* GOOGLE LOGIN BUTTON */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+          />
+        </div>
+
+        {/* OR */}
+        <div style={styles.splitBox}>
+          <div style={styles.line}></div>
+          <span style={styles.orText}>OR</span>
+          <div style={styles.line}></div>
+        </div>
+
+        {/* INPUT FIELDS */}
         <div style={styles.inputGroup}>
           <span style={styles.icon}>📧</span>
           <input
@@ -91,7 +151,7 @@ export default function Login() {
           disabled={loading}
           style={styles.loginBtn}
         >
-          {loading ? "Loading..." : "Login"}
+          {loading ? "Loading…" : "Login"}
         </button>
 
         <p style={styles.bottomText}>
@@ -105,12 +165,11 @@ export default function Login() {
   );
 }
 
-//
-// ---------- PREMIUM UI STYLES ------------
+// -------- PREMIUM UI STYLES --------
 //
 const styles = {
   wrapper: {
-    minHeight: "calc(100vh - 70px)",  // ⭐ FIX scroll issue
+    minHeight: "calc(100vh - 70px)",
     background: "#0f172a",
     display: "flex",
     justifyContent: "center",
@@ -120,14 +179,14 @@ const styles = {
   },
 
   bigGlow: {
-    position: "absolute",
+    position: "fixed",
     top: "-40%",
     left: "-30%",
     width: "200%",
     height: "200%",
     background: "radial-gradient(circle, rgba(96,165,250,0.15), transparent 70%)",
     filter: "blur(130px)",
-    zIndex: 0,
+    zIndex: -1,
   },
 
   card: {
@@ -142,7 +201,26 @@ const styles = {
     textAlign: "center",
     position: "relative",
     zIndex: 5,
-    transition: "all .6s ease",
+  },
+
+  splitBox: {
+    margin: "18px 0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+
+  line: {
+    height: 1,
+    width: "40%",
+    background: "rgba(255,255,255,0.15)",
+  },
+
+  orText: {
+    color: "#94a3b8",
+    fontSize: 14,
+    fontWeight: 500,
   },
 
   logoCircle: {
@@ -164,6 +242,16 @@ const styles = {
     background: "rgba(239,68,68,0.15)",
     border: "1px solid rgba(239,68,68,0.4)",
     color: "#fca5a5",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    marginBottom: "14px",
+    fontSize: "14px",
+  },
+
+  successBox: {
+    background: "rgba(16,185,129,0.12)",
+    border: "1px solid rgba(16,185,129,0.3)",
+    color: "#bbf7d0",
     padding: "8px 12px",
     borderRadius: "8px",
     marginBottom: "14px",
@@ -211,7 +299,6 @@ const styles = {
     fontWeight: 600,
     borderRadius: "12px",
     cursor: "pointer",
-    marginTop: "5px",
   },
 
   bottomText: { marginTop: "15px", color: "#cbd5e1", fontSize: "14px" },

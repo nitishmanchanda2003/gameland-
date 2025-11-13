@@ -147,7 +147,6 @@ const styles = {
 
 
  bigGlow: {
->>>>>>> 4c0942f6c7eeb393bc8f9e3dbb3d2f5d90b071d5
   position: "fixed",
   top: "-40%",
   left: "-30%",
@@ -158,10 +157,6 @@ const styles = {
   zIndex: -1,
   pointerEvents: "none",
 },
-<<<<<<< HEAD
-=======
-
->>>>>>> 4c0942f6c7eeb393bc8f9e3dbb3d2f5d90b071d5
 
   card: {
     width: "100%",
