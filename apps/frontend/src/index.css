@@ -1,0 +1,109 @@
+/* --------------------------- */
+/* Global Reset & Base Styles  */
+/* --------------------------- */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #0f172a; /* dark clean bg */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Code elements */
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+/* --------------------------- */
+/* Smooth Scroll               */
+/* --------------------------- */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* --------------------------- */
+/* Scrollbar Styling           */
+/* --------------------------- */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* --------------------------- */
+/* Utility Transitions         */
+/* --------------------------- */
+
+a, button {
+  transition: 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* --------------------------- */
+/* Fade-in Animation           */
+/* --------------------------- */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------- */
+/* Loader Spinner Animation    */
+/* --------------------------- */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------- */
+/* Responsive Helper Classes   */
+/* --------------------------- */
+
+/* For centering elements */
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Hide on mobile */
+@media (max-width: 600px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Hide on desktop */
+@media (min-width: 601px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
