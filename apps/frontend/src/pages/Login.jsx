@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../services/api";
+import { useAuth } from "../context/AuthContext";   // ⭐ AUTH
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth(); // ⭐ useAuth
 
   const [animate, setAnimate] = useState(false);
   const [email, setEmail] = useState("");
@@ -31,8 +33,8 @@ export default function Login() {
 
       const res = await loginUser({ email, password });
 
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
+      // ⭐ Save user globally
+      login(res.data.user, res.data.token);
 
       navigate("/");
     } catch (err) {
@@ -104,29 +106,30 @@ export default function Login() {
 }
 
 //
-// ---------- PREMIUM GLASS UI STYLES ----------
+// ---------- PREMIUM UI STYLES ------------
 //
 const styles = {
   wrapper: {
-    minHeight: "80vh",
+    minHeight: "calc(100vh - 70px)",  // ⭐ FIX scroll issue
     background: "#0f172a",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    padding: "20px",
+    padding: "40px 20px",
     position: "relative",
   },
 
   bigGlow: {
-    position: "absolute",
-    top: "-40%",
-    left: "-30%",
-    width: "200%",
-    height: "200%",
-    background: "radial-gradient(circle, rgba(96,165,250,0.15), transparent 70%)",
-    filter: "blur(130px)",
-    zIndex: 0,
-  },
+  position: "fixed",
+  top: "-40%",
+  left: "-30%",
+  width: "200%",
+  height: "200%",
+  background: "radial-gradient(circle, rgba(96,165,250,0.15), transparent 70%)",
+  filter: "blur(130px)",
+  zIndex: -1,
+  pointerEvents: "none",
+},
 
   card: {
     width: "100%",

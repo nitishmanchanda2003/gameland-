@@ -1,59 +1,49 @@
 // src/components/Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";   // ⭐ AUTH
 
 const BREAKPOINT = 900;
 
 export default function Navbar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const { user, logout } = useAuth();   // ⭐ GLOBAL USER + LOGOUT
+
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth <= BREAKPOINT : false
   );
   const [open, setOpen] = useState(false);
 
-  const location = useLocation();
-  const navigate = useNavigate();
+  useEffect(() => setOpen(false), [location.pathname]);
 
-  // user state
-  const [user, setUser] = useState(() => {
-    const u = localStorage.getItem("user");
-    return u ? JSON.parse(u) : null;
-  });
-
-  // close menu on route change
   useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
-
-  // detect mobile
-  useEffect(() => {
-    function onResize() {
+    const onResize = () => {
       const mobile = window.innerWidth <= BREAKPOINT;
       setIsMobile(mobile);
       if (!mobile) setOpen(false);
-    }
+    };
     window.addEventListener("resize", onResize);
     onResize();
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // logout
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    navigate("/login");
-  };
-
-  // links
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/categories", label: "Categories" },
     ...(user ? [{ to: "/profile", label: "Profile" }] : []),
   ];
 
+  const handleLogout = () => {
+    logout();         // ⭐ CLEAR AUTH
+    navigate("/login");
+  };
+
   return (
     <header style={styles.header}>
       <nav style={styles.nav}>
+        
         {/* LEFT */}
         <div style={styles.left}>
           <Link to="/" style={styles.brand}>
@@ -62,7 +52,7 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* CENTER — desktop only */}
+        {/* CENTER (desktop) */}
         <div style={{ ...styles.center, display: isMobile ? "none" : "flex" }}>
           {navLinks.map((l) => (
             <Link
@@ -78,7 +68,7 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* RIGHT — desktop login/register */}
+        {/* RIGHT (desktop) */}
         {!isMobile && (
           <div style={styles.right}>
             {!user ? (
@@ -86,12 +76,6 @@ export default function Navbar() {
                 <Link
                   to="/login"
                   style={styles.btnLogin}
-                  onMouseEnter={(e) =>
-                    Object.assign(e.target.style, styles.btnLoginHover)
-                  }
-                  onMouseLeave={(e) =>
-                    Object.assign(e.target.style, styles.btnLogin)
-                  }
                 >
                   Login
                 </Link>
@@ -99,19 +83,13 @@ export default function Navbar() {
                 <Link
                   to="/register"
                   style={styles.btnRegister}
-                  onMouseEnter={(e) =>
-                    Object.assign(e.target.style, styles.btnRegisterHover)
-                  }
-                  onMouseLeave={(e) =>
-                    Object.assign(e.target.style, styles.btnRegister)
-                  }
                 >
                   Register
                 </Link>
               </>
             ) : (
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 style={{
                   ...styles.btnLogin,
                   border: "1px solid rgba(255,80,80,0.35)",
@@ -124,7 +102,7 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* MOBILE HAMBURGER */}
+        {/* MOBILE MENU BUTTON */}
         {isMobile && (
           <div style={styles.right}>
             <button
@@ -184,7 +162,6 @@ export default function Navbar() {
               </Link>
             ))}
 
-            {/* LOGIN/REGISTER in mobile */}
             {!user && (
               <>
                 <Link
@@ -194,6 +171,7 @@ export default function Navbar() {
                 >
                   Login
                 </Link>
+
                 <Link
                   to="/register"
                   onClick={() => setOpen(false)}
@@ -208,14 +186,13 @@ export default function Navbar() {
               <button
                 onClick={() => {
                   setOpen(false);
-                  logout();
+                  handleLogout();
                 }}
                 style={{
                   ...styles.mobileLink,
                   background: "transparent",
-                  border: "none",
                   textAlign: "left",
-                  cursor: "pointer",
+                  border: "none",
                 }}
               >
                 Logout
@@ -228,8 +205,10 @@ export default function Navbar() {
   );
 }
 
+
+
 //
-// -------- STYLES (your original preserved + premium buttons added) --------
+// -------- STYLES (unchanged — your original premium UI) --------
 //
 const styles = {
   header: {
@@ -333,7 +312,7 @@ const styles = {
     boxShadow: "0 0 28px rgba(99,102,241,0.65)",
   },
 
-  // ---------- HAMBURGER (original) ----------
+  // ---------- HAMBURGER ----------
   hamburgerBtn: {
     display: "inline-flex",
     alignItems: "center",
@@ -368,7 +347,8 @@ const styles = {
     left: 0,
     right: 0,
     top: "100%",
-    background: "linear-gradient(180deg, rgba(8,14,22,0.95), rgba(7,10,16,0.98))",
+    background:
+      "linear-gradient(180deg, rgba(8,14,22,0.95), rgba(7,10,16,0.98))",
     borderTop: "1px solid rgba(255,255,255,0.02)",
     boxShadow: "0 10px 40px rgba(2,6,23,0.6)",
     transition: "opacity 200ms ease, transform 200ms ease",
