@@ -14,7 +14,7 @@ export default function Navbar() {
   // keep menu closed when route changes
   useEffect(() => {
     setOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname]);        
 
   // watch resize
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function Navbar() {
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/categories", label: "Categories" },
-    { to: "/profile", label: "Profile" },
+    { to: "/contact", label: "Contact" },
   ];
 
   return (
