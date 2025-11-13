@@ -1,16 +1,24 @@
-import axios from 'axios';
+import axios from "axios";
 
-// Base URL - abhi local rakhenge, baad me backend set hone par change karenge
+// Base axios instance
 const API = axios.create({
-  baseURL: 'http://localhost:5000', // yahi se backend connect hoga
+  baseURL: "http://localhost:5000/api", // backend ka base path
 });
 
-// Example function - test ke liye
-export const getTestData = async () => {
-  try {
-    const response = await API.get('/test');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching test data:', error);
+// Add token automatically (if logged in)
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-};
+  return config;
+});
+
+// AUTH APIs
+export const loginUser = (data) => API.post("/auth/login", data);
+export const registerUser = (data) => API.post("/auth/register", data);
+
+// Test API (optional)
+export const getTestData = () => API.get("/test");
+
+export default API;
