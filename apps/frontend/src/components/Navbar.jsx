@@ -22,7 +22,7 @@ export default function Navbar() {
   // close menu on route change
   useEffect(() => {
     setOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname]);        
 
   // detect mobile
   useEffect(() => {
