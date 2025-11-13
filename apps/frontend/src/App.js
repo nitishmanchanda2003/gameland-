@@ -15,20 +15,20 @@ import GameDetail from "./pages/GameDetail";
 import { getTestData } from "./services/api";
 
 function App() {
-  const [message, setMessage] = useState("");
+  // const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await getTestData();
-        if (data) setMessage(data.message);
-      } catch (error) {
-        console.error("Backend Error:", error);
-        setMessage("Failed to connect to backend.");
-      }
-    };
-    fetchData();
-  }, []);
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     try {
+  //       const data = await getTestData();
+  //       if (data) setMessage(data.message);
+  //     } catch (error) {
+  //       console.error("Backend Error:", error);
+  //       setMessage("Failed to connect to backend.");
+  //     }
+  //   };
+  //   fetchData();
+  // }, []);
 
   return (
     <div style={styles.appWrapper}>
@@ -40,10 +40,10 @@ function App() {
             path="/"
             element={
               <>
-                <h1 style={styles.title}>Welcome to Gameland 🎮</h1>
+                {/* <h1 style={styles.title}>Welcome to Gameland 🎮</h1>
                 <p style={styles.message}>
                   {message || "Loading backend connection..."}
-                </p>
+                </p> */}
 
                 <Home />
               </>
