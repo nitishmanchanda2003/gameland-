@@ -12,6 +12,7 @@ export default function Footer() {
           <a href="#" style={styles.link}>About</a>
           <a href="#" style={styles.link}>Contact</a>
           <a href="#" style={styles.link}>Privacy</a>
+          <a href="#" style={styles.link}>Games</a>
         </div>
       </div>
     </footer>
