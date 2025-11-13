@@ -9,7 +9,8 @@ export default function Home() {
   const [animate, setAnimate] = useState(false);
 
   useEffect(() => {
-    setTimeout(() => setAnimate(true), 80);
+    const t = setTimeout(() => setAnimate(true), 80);
+    return () => clearTimeout(t);
   }, []);
 
   const trending = [...gamesData].sort((a, b) => b.rating - a.rating).slice(0, 5);
@@ -18,7 +19,6 @@ export default function Home() {
 
   return (
     <div style={styles.wrapper}>
-
       {/* HERO */}
       <section
         style={{
@@ -27,7 +27,7 @@ export default function Home() {
           transform: animate ? "translateY(0)" : "translateY(25px)",
         }}
       >
-        <div style={styles.heroGlow}></div>
+        <div style={styles.heroGlow} aria-hidden="true" />
         <h1 style={styles.heroTitle}>Welcome to Gameland 🎮</h1>
         <p style={styles.heroSub}>Play amazing online games — fully free!</p>
       </section>
@@ -101,15 +101,14 @@ export default function Home() {
   );
 }
 
-//
-// ⭐ STYLES — ultra premium polished
-//
 const styles = {
   wrapper: {
     padding: "20px",
     color: "#fff",
-    maxWidth: "1350px",
+    width: "100%",            // full width of parent
+    maxWidth: "1350px",       // center content visually, won't overflow
     margin: "0 auto",
+    boxSizing: "border-box",  // important to keep padding inside width
   },
 
   /* HERO */
@@ -121,8 +120,9 @@ const styles = {
     borderRadius: "22px",
     background: "linear-gradient(135deg, #0f172a, #1e293b)",
     boxShadow: "0 0 55px rgba(59,130,246,0.22)",
-    overflow: "hidden",
+    overflow: "hidden",       // clip the glow so it doesn't cause overflow
     transition: "all .65s ease",
+    width: "100%",
   },
 
   heroGlow: {
@@ -133,6 +133,7 @@ const styles = {
     height: "200%",
     background: "radial-gradient(circle, rgba(96,165,250,0.17), transparent 70%)",
     filter: "blur(120px)",
+    pointerEvents: "none",
   },
 
   heroTitle: {
@@ -175,6 +176,7 @@ const styles = {
     overflowX: "auto",
     paddingBottom: "10px",
     scrollBehavior: "smooth",
+    willChange: "transform",
   },
 
   horizontalItem: {
@@ -189,5 +191,6 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
     gap: "24px",
     justifyItems: "center",
+    width: "100%",
   },
 };

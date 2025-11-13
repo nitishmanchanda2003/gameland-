@@ -34,8 +34,7 @@ function App() {
     <div style={styles.appWrapper}>
       <Navbar />
 
-      <div style={styles.container}>
-        {/* Backend Connection Message - Only on Home */}
+      <main style={styles.container}>
         <Routes>
           <Route
             path="/"
@@ -55,7 +54,7 @@ function App() {
 
           <Route path="/game/:gameId" element={<GameDetail />} />
         </Routes>
-      </div>
+      </main>
 
       <Footer />
     </div>
@@ -66,12 +65,19 @@ const styles = {
   appWrapper: {
     background: "#0f172a",
     minHeight: "100vh",
+    width: "100vw",        // ensure full viewport width
+    overflowX: "hidden",   // prevent horizontal overflow
+    boxSizing: "border-box",
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    color: "#fff",
+    display: "flex",
+    flexDirection: "column",
   },
   container: {
     padding: "20px",
-    maxWidth: "1200px",
-    margin: "0 auto",
+    width: "100%",
+    boxSizing: "border-box",
+    flex: 1,
   },
   title: {
     color: "#fff",
