@@ -115,7 +115,7 @@ const styles = {
   hero: {
     position: "relative",
     textAlign: "center",
-    padding: "65px 20px",
+    padding: "20px 20px",
     marginBottom: "60px",
     borderRadius: "22px",
     background: "linear-gradient(135deg, #0f172a, #1e293b)",
