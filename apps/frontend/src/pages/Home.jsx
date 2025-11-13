@@ -9,7 +9,7 @@ export default function Home() {
   const [animate, setAnimate] = useState(false);
 
   useEffect(() => {
-    setTimeout(() => setAnimate(true), 50);
+    setTimeout(() => setAnimate(true), 80);
   }, []);
 
   const trending = [...gamesData].sort((a, b) => b.rating - a.rating).slice(0, 5);
@@ -24,17 +24,20 @@ export default function Home() {
         style={{
           ...styles.hero,
           opacity: animate ? 1 : 0,
-          transform: animate ? "translateY(0px)" : "translateY(20px)",
+          transform: animate ? "translateY(0)" : "translateY(25px)",
         }}
       >
         <div style={styles.heroGlow}></div>
         <h1 style={styles.heroTitle}>Welcome to Gameland 🎮</h1>
-        <p style={styles.heroSub}>Play games instantly — no downloads needed!</p>
+        <p style={styles.heroSub}>Play amazing online games — fully free!</p>
       </section>
+
+      {/* SECTION DIVIDER */}
+      <div style={styles.sectionDivider}></div>
 
       {/* TRENDING */}
       <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>🔥 Trending Games</h2>
+        <h2 style={styles.sectionTitleGlow}>🔥 Trending Games</h2>
 
         <div style={styles.horizontalScroll}>
           {trending.map((game, i) => (
@@ -43,8 +46,8 @@ export default function Home() {
               style={{
                 ...styles.horizontalItem,
                 opacity: animate ? 1 : 0,
-                transform: animate ? "translateY(0)" : "translateY(25px)",
-                transition: `all .6s ease ${i * 0.12}s`,
+                transform: animate ? "translateY(0)" : "translateY(20px)",
+                transition: `all .6s ease ${i * 0.1}s`,
               }}
             >
               <GameCard game={game} onPlay={() => setSelectedGame(game)} />
@@ -55,7 +58,7 @@ export default function Home() {
 
       {/* POPULAR */}
       <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>⭐ Popular Games</h2>
+        <h2 style={styles.sectionTitleGlow}>⭐ Popular Games</h2>
 
         <div style={styles.grid}>
           {popular.map((game, i) => (
@@ -63,8 +66,8 @@ export default function Home() {
               key={game.id}
               style={{
                 opacity: animate ? 1 : 0,
-                transform: animate ? "scale(1)" : "scale(0.95)",
-                transition: `all .55s ease ${i * 0.08}s`,
+                transform: animate ? "scale(1)" : "scale(0.92)",
+                transition: `all .55s ease ${i * 0.07}s`,
               }}
             >
               <GameCard game={game} onPlay={() => setSelectedGame(game)} />
@@ -75,7 +78,7 @@ export default function Home() {
 
       {/* NEW RELEASES */}
       <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>🆕 New Releases</h2>
+        <h2 style={styles.sectionTitleGlow}>🆕 New Releases</h2>
 
         <div style={styles.grid}>
           {newReleases.map((game, i) => (
@@ -83,8 +86,8 @@ export default function Home() {
               key={game.id}
               style={{
                 opacity: animate ? 1 : 0,
-                transform: animate ? "translateY(0)" : "translateY(30px)",
-                transition: `all .6s ease ${i * 0.1}s`,
+                transform: animate ? "translateY(0)" : "translateY(25px)",
+                transition: `all .6s ease ${i * 0.09}s`,
               }}
             >
               <GameCard game={game} onPlay={() => setSelectedGame(game)} />
@@ -99,13 +102,13 @@ export default function Home() {
 }
 
 //
-// ------------ STYLES 100% FIXED ----------------
+// ⭐ STYLES — ultra premium polished
 //
 const styles = {
   wrapper: {
     padding: "20px",
     color: "#fff",
-    maxWidth: "1300px",
+    maxWidth: "1350px",
     margin: "0 auto",
   },
 
@@ -113,50 +116,62 @@ const styles = {
   hero: {
     position: "relative",
     textAlign: "center",
-    padding: "55px 20px",
-    marginBottom: "50px",
-    borderRadius: "20px",
-    background: "linear-gradient(135deg, #1e293b, #0f172a)",
-    boxShadow: "0 0 30px rgba(0,0,0,0.45)",
+    padding: "65px 20px",
+    marginBottom: "60px",
+    borderRadius: "22px",
+    background: "linear-gradient(135deg, #0f172a, #1e293b)",
+    boxShadow: "0 0 55px rgba(59,130,246,0.22)",
     overflow: "hidden",
-    transition: "all .6s ease",
+    transition: "all .65s ease",
   },
 
   heroGlow: {
     position: "absolute",
-    top: "-40%",
-    left: "-30%",
+    top: "-45%",
+    left: "-35%",
     width: "200%",
     height: "200%",
-    background: "radial-gradient(circle, rgba(59,130,246,0.2), transparent 70%)",
-    filter: "blur(100px)",
+    background: "radial-gradient(circle, rgba(96,165,250,0.17), transparent 70%)",
+    filter: "blur(120px)",
   },
 
   heroTitle: {
-    fontSize: "38px",
+    fontSize: "42px",
     fontWeight: 800,
-    marginBottom: "8px",
+    marginBottom: "10px",
+    letterSpacing: "1px",
   },
 
   heroSub: {
-    fontSize: "17px",
+    fontSize: "18px",
     color: "#9ca3af",
+  },
+
+  /* SECTION DIVIDER */
+  sectionDivider: {
+    width: "100%",
+    height: "2px",
+    background: "linear-gradient(90deg, transparent, #3b82f6, transparent)",
+    margin: "20px 0 30px",
+    opacity: 0.6,
   },
 
   /* SECTION */
   section: {
-    marginBottom: "40px",
-  },
-  sectionTitle: {
-    fontSize: "24px",
-    fontWeight: 700,
-    marginBottom: "16px",
+    marginBottom: "50px",
   },
 
-  /* FIXED HORIZONTAL ROW */
+  sectionTitleGlow: {
+    fontSize: "26px",
+    fontWeight: 700,
+    marginBottom: "18px",
+    textShadow: "0 0 12px rgba(59,130,246,0.55)",
+  },
+
+  /* HORIZONTAL LIST */
   horizontalScroll: {
     display: "flex",
-    gap: "18px",
+    gap: "20px",
     overflowX: "auto",
     paddingBottom: "10px",
     scrollBehavior: "smooth",
@@ -168,11 +183,11 @@ const styles = {
     justifyContent: "center",
   },
 
-  /* 🔥 FIXED GRID — NO OVERLAP EVER */
+  /* GRID */
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
-    gap: "22px",
+    gap: "24px",
     justifyItems: "center",
   },
 };

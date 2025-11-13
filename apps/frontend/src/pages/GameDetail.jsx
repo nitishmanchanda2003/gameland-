@@ -11,17 +11,23 @@ export default function GameDetail() {
   const [searchParams] = useSearchParams();
 
   const autoPlay = searchParams.get("autoPlay") === "true";
-
   const game = gamesData.find((g) => g.id.toString() === gameId.toString());
 
   const [startGame, setStartGame] = useState(autoPlay);
+  const [animate, setAnimate] = useState(false);
 
-  // Auto scroll when autoplay happens
+  useEffect(() => {
+    setTimeout(() => setAnimate(true), 100);
+  }, []);
+
   useEffect(() => {
     if (autoPlay) {
       setTimeout(() => {
-        window.scrollTo({ top: 300, behavior: "smooth" });
-      }, 200);
+        window.scrollTo({
+          top: window.innerWidth < 600 ? 260 : 330,
+          behavior: "smooth",
+        });
+      }, 250);
     }
   }, [autoPlay]);
 
@@ -36,89 +42,124 @@ export default function GameDetail() {
     );
   }
 
-  // RELATED GAMES (same genre)
   const relatedGames = gamesData.filter(
     (g) => g.genre === game.genre && g.id !== game.id
   );
 
   return (
-    <div style={styles.pageWrapper}>
-
+    <div style={styles.pageFrame}>
       {/* BACK BUTTON */}
       <button onClick={() => navigate(-1)} style={styles.backBtn}>
         ← Back
       </button>
 
-      {/* TOP BANNER */}
-      <div style={styles.bannerWrapper}>
-        <img src={game.image} alt={game.title} style={styles.bannerImg} />
+      {/* MAIN WRAPPER */}
+      <div
+        style={{
+          ...styles.pageWrapper,
+          opacity: animate ? 1 : 0,
+          transition: "opacity 0.6s ease",
+        }}
+      >
+        {/* BANNER */}
+        <div style={styles.bannerWrapper}>
+          <img src={game.image} alt={game.title} style={styles.bannerImg} />
 
-        {/* Glass info overlay */}
-        <div style={styles.bannerContent}>
-          <h1 style={styles.title}>{game.title}</h1>
-          <p style={styles.genre}>{game.genre}</p>
-          <RatingStars rating={game.rating} />
+          {/* GRADIENT OVERLAY */}
+          <div style={styles.bannerGradient}></div>
 
-          {!startGame && (
-            <button
-              onClick={() => {
-                setStartGame(true);
-                setTimeout(() => {
-                  window.scrollTo({ top: 300, behavior: "smooth" });
-                }, 200);
-              }}
-              style={styles.playBtn}
-            >
-              ▶ Play Now
-            </button>
-          )}
-        </div>
-      </div>
+          {/* GLASS CONTENT */}
+          <div style={styles.bannerContent}>
+            <h1 style={styles.gameTitle}>{game.title}</h1>
+            <p style={styles.genre}>{game.genre}</p>
 
-      {/* DESCRIPTION BOX */}
-      <div style={styles.descriptionBox}>
-        <h3 style={{ marginBottom: "10px" }}>About this game</h3>
-        <p style={styles.description}>{game.description}</p>
-      </div>
+            <RatingStars rating={game.rating} />
 
-      {/* GAME PLAYER */}
-      {startGame && (
-        <div style={{ marginTop: 25 }}>
-          <GamePlayer gameId={game.id} />
-        </div>
-      )}
-
-      {/* RELATED GAMES */}
-      {relatedGames.length > 0 && (
-        <div style={styles.relatedSection}>
-          <h3 style={styles.relatedTitle}>Related Games</h3>
-
-          <div style={styles.relatedGrid}>
-            {relatedGames.map((g) => (
-              <div
-                key={g.id}
-                style={styles.relatedCard}
-                onClick={() => navigate(`/game/${g.id}`)}
+            {/* PLAY BUTTON */}
+            {!startGame && (
+              <button
+                onClick={() => {
+                  setStartGame(true);
+                  setTimeout(() => {
+                    window.scrollTo({
+                      top: 330,
+                      behavior: "smooth",
+                    });
+                  }, 200);
+                }}
+                style={styles.playBtn}
               >
-                <img src={g.image} alt={g.title} style={styles.relatedImg} />
-                <p style={styles.relatedName}>{g.title}</p>
-              </div>
-            ))}
+                ▶ Play Now
+              </button>
+            )}
           </div>
         </div>
-      )}
 
+        {/* STATS ROW */}
+        <div style={styles.statsRow}>
+          <div style={styles.statBox}>
+            <span style={styles.statValue}>124.5K</span>
+            <span style={styles.statLabel}>Plays</span>
+          </div>
+          <div style={styles.statBox}>
+            <span style={styles.statValue}>{game.rating}</span>
+            <span style={styles.statLabel}>Rating</span>
+          </div>
+          <div style={styles.statBox}>
+            <span style={styles.statValue}>2025</span>
+            <span style={styles.statLabel}>Updated</span>
+          </div>
+        </div>
+
+        {/* ABOUT SECTION */}
+        <div style={styles.descriptionBox}>
+          <h3 style={styles.aboutTitle}>About This Game</h3>
+          <p style={styles.description}>{game.description}</p>
+
+          <div style={styles.tagsRow}>
+            <span style={styles.tag}>🎮 {game.genre}</span>
+            <span style={styles.tag}>⚡ Fast Gameplay</span>
+            <span style={styles.tag}>🔥 Popular Choice</span>
+          </div>
+        </div>
+
+        {/* GAME PLAYER */}
+        {startGame && (
+          <div style={styles.playerWrapper}>
+            <GamePlayer gameId={game.id} />
+          </div>
+        )}
+
+        {/* RELATED SLIDER */}
+        {relatedGames.length > 0 && (
+          <div style={styles.relatedSection}>
+            <h3 style={styles.relatedTitle}>You Might Also Like</h3>
+
+            <div style={styles.slider}>
+              {relatedGames.map((g) => (
+                <div
+                  key={g.id}
+                  style={styles.sliderCard}
+                  onClick={() => navigate(`/game/${g.id}`)}
+                >
+                  <img src={g.image} alt={g.title} style={styles.sliderImg} />
+                  <p style={styles.sliderName}>{g.title}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-
-// -------------------- STYLES --------------------
+/* STYLES */
 const styles = {
-  pageWrapper: {
+  pageFrame: {
     padding: "20px",
     color: "#fff",
-    maxWidth: "1100px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
 
@@ -129,103 +170,169 @@ const styles = {
     border: "none",
     color: "#fff",
     cursor: "pointer",
-    marginBottom: "20px",
+    marginBottom: "14px",
   },
 
-  // Banner section
+  pageWrapper: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "22px",
+  },
+
+  /* BANNER */
   bannerWrapper: {
     position: "relative",
-    borderRadius: "14px",
+    borderRadius: "18px",
     overflow: "hidden",
-    marginBottom: "20px",
+    height: "320px",
   },
 
   bannerImg: {
     width: "100%",
-    height: "300px",
+    height: "100%",
     objectFit: "cover",
-    filter: "brightness(0.65)",
+    filter: "brightness(0.55)",
+  },
+
+  bannerGradient: {
+    position: "absolute",
+    inset: 0,
+    background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.7))",
   },
 
   bannerContent: {
     position: "absolute",
-    bottom: "20px",
-    left: "20px",
-    padding: "15px 18px",
-    borderRadius: "12px",
+    bottom: "18px",
+    left: "18px",
     background: "rgba(0,0,0,0.45)",
-    backdropFilter: "blur(6px)",
+    backdropFilter: "blur(8px)",
+    padding: "16px 20px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.1)",
   },
 
-  title: {
+  gameTitle: {
     fontSize: "32px",
-    marginBottom: "4px",
+    fontWeight: 800,
+    marginBottom: 6,
   },
 
   genre: {
     color: "#93c5fd",
-    marginBottom: "6px",
+    marginBottom: 6,
   },
 
   playBtn: {
-    marginTop: "12px",
-    padding: "10px 18px",
-    background: "#10b981",
-    color: "#fff",
-    borderRadius: "8px",
+    marginTop: 12,
+    padding: "12px 20px",
+    background: "linear-gradient(135deg,#059669,#10b981)",
     border: "none",
-    cursor: "pointer",
+    borderRadius: "10px",
+    color: "#fff",
     fontSize: "16px",
-    fontWeight: 600,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "0 4px 18px rgba(16,185,129,0.4)",
   },
 
-  // Description
+  /* STATS */
+  statsRow: {
+    display: "flex",
+    gap: "20px",
+    justifyContent: "center",
+  },
+
+  statBox: {
+    textAlign: "center",
+    padding: "10px 16px",
+    background: "rgba(255,255,255,0.05)",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    minWidth: "100px",
+  },
+
+  statValue: {
+    fontSize: "20px",
+    fontWeight: 700,
+  },
+
+  statLabel: {
+    color: "#94a3b8",
+    fontSize: "12px",
+  },
+
+  /* ABOUT */
   descriptionBox: {
     background: "rgba(255,255,255,0.05)",
     padding: "18px",
-    borderRadius: "10px",
-    marginTop: "20px",
+    borderRadius: "12px",
+  },
+
+  aboutTitle: {
+    marginBottom: 10,
+    fontSize: "20px",
   },
 
   description: {
     color: "#cbd5e1",
-    lineHeight: "1.7",
+    lineHeight: 1.7,
+    marginBottom: 14,
   },
 
-  // Related games
+  tagsRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  tag: {
+    background: "rgba(255,255,255,0.12)",
+    padding: "6px 12px",
+    borderRadius: "20px",
+    fontSize: "13px",
+  },
+
+  /* GAME PLAYER */
+  playerWrapper: {
+    marginTop: 10,
+  },
+
+  /* RELATED */
   relatedSection: {
-    marginTop: "35px",
+    marginTop: 30,
   },
 
   relatedTitle: {
-    fontSize: "20px",
-    marginBottom: "15px",
+    fontSize: "22px",
+    marginBottom: "12px",
   },
 
-  relatedGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-    gap: "15px",
+  slider: {
+    display: "flex",
+    gap: "18px",
+    overflowX: "auto",
+    paddingBottom: "10px",
   },
 
-  relatedCard: {
-    background: "#1e293b",
-    borderRadius: "10px",
-    cursor: "pointer",
+  sliderCard: {
+    minWidth: "150px",
+    borderRadius: "12px",
     overflow: "hidden",
-    transition: "transform 0.2s",
+    background: "#1e293b",
+    cursor: "pointer",
+    transition: "0.25s",
   },
 
-  relatedImg: {
+  sliderImg: {
     width: "100%",
-    height: "120px",
+    height: "110px",
     objectFit: "cover",
   },
 
-  relatedName: {
-    padding: "10px",
-    fontSize: "14px",
-    color: "#e2e8f0",
+  sliderName: {
     textAlign: "center",
+    color: "#e2e8f0",
+    padding: "8px",
+    fontSize: "14px",
   },
 };

@@ -7,6 +7,8 @@ export default function GamePlayer({ gameId }) {
   const iframeRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
   const timeoutRef = useRef(null);
 
   useEffect(() => {
@@ -39,23 +41,41 @@ export default function GamePlayer({ gameId }) {
     else if (iframe?.msRequestFullscreen) iframe.msRequestFullscreen();
   };
 
-  return (
-    <div style={styles.container}>
-      
-      {/* Top header bar */}
-      <div style={styles.topBar}>
-        <span style={styles.gameTitle}>▶ Playing Game</span>
+  const handleReload = () => {
+    setLoading(true);
+    setFailed(false);
+    iframeRef.current.src = iframeRef.current.src;
+  };
 
-        {/* Fullscreen button */}
-        <button style={styles.fullscreenBtn} onClick={handleFullscreen}>
-          ⛶ Fullscreen
-        </button>
+  return (
+    <div
+      style={{
+        ...styles.container,
+        height: expanded ? "85vh" : "70vh",
+        transition: "0.25s ease",
+      }}
+    >
+      {/* TOP CONTROL BAR */}
+      <div style={styles.topBar}>
+        <span style={styles.gameTitle}>🎮 Playing Game</span>
+
+        <div style={styles.controlsRight}>
+          <button style={styles.btn} onClick={handleReload}>
+            🔄 Reload
+          </button>
+
+          <button style={styles.btn} onClick={handleFullscreen}>
+            ⛶ Fullscreen
+          </button>
+
+          <button style={styles.btn} onClick={() => setExpanded(!expanded)}>
+            {expanded ? "🔽 Shrink" : "🔼 Expand"}
+          </button>
+        </div>
       </div>
 
-      {/* Game area */}
+      {/* GAME AREA */}
       <div style={styles.playerArea}>
-        
-        {/* Loading overlay */}
         {loading && (
           <div style={styles.loadingOverlay}>
             <div style={styles.glowSpinner}></div>
@@ -63,7 +83,6 @@ export default function GamePlayer({ gameId }) {
           </div>
         )}
 
-        {/* Error state */}
         {failed && (
           <div style={styles.errorOverlay}>
             <h3 style={{ color: "#fff", marginBottom: 4 }}>
@@ -73,7 +92,6 @@ export default function GamePlayer({ gameId }) {
           </div>
         )}
 
-        {/* Iframe */}
         {!failed && (
           <iframe
             ref={iframeRef}
@@ -83,7 +101,7 @@ export default function GamePlayer({ gameId }) {
             style={{
               ...styles.iframe,
               opacity: loading ? 0 : 1,
-              transition: "opacity 0.4s ease",
+              transition: "opacity 0.45s ease",
             }}
             sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups"
             allow="fullscreen"
@@ -94,21 +112,25 @@ export default function GamePlayer({ gameId }) {
   );
 }
 
-// styles
+
+/* ------------------ STYLES ------------------ */
+
 const styles = {
   container: {
     width: "100%",
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: "hidden",
     background: "#000",
-    border: "1px solid rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 0 25px rgba(0,0,0,0.35)",
   },
 
+  /* TOP BAR */
   topBar: {
-    padding: "10px 14px",
-    background:
-      "linear-gradient(90deg, rgba(14,165,233,0.10), rgba(99,102,241,0.05))",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
+    padding: "10px 16px",
+    background: "rgba(255,255,255,0.06)",
+    borderBottom: "1px solid rgba(255,255,255,0.10)",
+    backdropFilter: "blur(10px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -116,25 +138,32 @@ const styles = {
 
   gameTitle: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 600,
+    letterSpacing: "0.5px",
   },
 
-  fullscreenBtn: {
-    background: "rgba(255,255,255,0.12)",
-    border: "1px solid rgba(255,255,255,0.18)",
+  controlsRight: {
+    display: "flex",
+    gap: "10px",
+  },
+
+  btn: {
+    background: "rgba(255,255,255,0.14)",
+    border: "1px solid rgba(255,255,255,0.20)",
     color: "#fff",
     padding: "6px 12px",
     borderRadius: 6,
     cursor: "pointer",
     fontSize: 13,
-    transition: "background 0.2s",
+    transition: "0.25s ease",
   },
 
+  /* GAME AREA */
   playerArea: {
     position: "relative",
     width: "100%",
-    height: "70vh",
+    height: "100%",
     minHeight: 350,
     background: "#000",
   },
@@ -143,14 +172,14 @@ const styles = {
     width: "100%",
     height: "100%",
     border: "none",
-    background: "#000",
   },
 
+  /* LOADING OVERLAY */
   loadingOverlay: {
     position: "absolute",
     inset: 0,
-    backdropFilter: "blur(4px)",
-    background: "rgba(0,0,0,0.45)",
+    backdropFilter: "blur(6px)",
+    background: "rgba(0,0,0,0.55)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -163,9 +192,9 @@ const styles = {
     height: 60,
     borderRadius: "50%",
     border: "6px solid rgba(255,255,255,0.15)",
-    borderTopColor: "#3b82f6",
-    animation: "spin 1.1s linear infinite",
-    boxShadow: "0 0 12px #3b82f6",
+    borderTopColor: "#38bdf8",
+    animation: "spin 1s linear infinite",
+    boxShadow: "0 0 15px #38bdf8, 0 0 25px rgba(56,189,248,0.3)",
   },
 
   loadingText: {
@@ -175,6 +204,7 @@ const styles = {
     letterSpacing: "0.3px",
   },
 
+  /* ERROR SCREEN */
   errorOverlay: {
     position: "absolute",
     inset: 0,
