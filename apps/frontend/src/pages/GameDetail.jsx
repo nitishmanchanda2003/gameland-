@@ -2,32 +2,41 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { getAllGames } from "../services/api";
+import { increasePlay, rateGame } from "../services/gameActions";
 import RatingStars from "../components/RatingStars";
 import GamePlayer from "../components/GamePlayer";
 
 export default function GameDetail() {
-  const { slug } = useParams(); 
+  const { slug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
   const autoPlay = searchParams.get("autoPlay") === "true";
 
   const [game, setGame] = useState(null);
   const [allGames, setAllGames] = useState([]);
   const [startGame, setStartGame] = useState(autoPlay);
   const [animate, setAnimate] = useState(false);
+  const [userRating, setUserRating] = useState(null); // ⭐ local rating
 
-  // ------------------------------------------------------
-  // FETCH ALL GAMES + FIND CURRENT BY SLUG
-  // ------------------------------------------------------
+  /**************************************************
+   * LOAD GAMES FROM BACKEND
+   **************************************************/
   useEffect(() => {
     async function loadData() {
       try {
         const res = await getAllGames();
-        const list = res.data.games;
+        const list = res.data.games || [];
         setAllGames(list);
 
-        const g = list.find((x) => x.slug === slug);
-        setGame(g);
+        const found = list.find((x) => x.slug === slug);
+        setGame(found);
+
+        // ⭐ Restore user rating if already rated
+        if (found) {
+          const stored = localStorage.getItem(`rated_${found._id}`);
+          if (stored) setUserRating(Number(stored));
+        }
       } catch (err) {
         console.log("Fetch failed:", err);
       }
@@ -35,45 +44,94 @@ export default function GameDetail() {
     loadData();
   }, [slug]);
 
-  // Page Animation
   useEffect(() => {
     setTimeout(() => setAnimate(true), 100);
   }, []);
 
-  // Auto Scroll
   useEffect(() => {
     if (autoPlay) {
       setTimeout(() => {
-        window.scrollTo({ top: 330, behavior: "smooth" });
+        window.scrollTo({
+          top: 330,
+          behavior: "smooth",
+        });
       }, 250);
     }
   }, [autoPlay]);
 
-  // ------------------------------------------------------
-  // GAME NOT FOUND
-  // ------------------------------------------------------
+  /**************************************************
+   * ⭐ PLAY GAME + SAFE PLAY COUNTER
+   **************************************************/
+  const handleStartGame = async () => {
+    setStartGame(true);
+
+    try {
+      const result = await increasePlay(game._id);
+
+      if (!result?.ignored) {
+        // Only update UI when backend accepted the count
+        setGame((prev) => ({
+          ...prev,
+          playCount: prev.playCount + 1,
+        }));
+      }
+    } catch (e) {
+      console.log("Play update failed:", e);
+    }
+
+    setTimeout(() => {
+      window.scrollTo({ top: 330, behavior: "smooth" });
+    }, 200);
+  };
+
+  /**************************************************
+   * ⭐ RATE GAME
+   **************************************************/
+  const handleRating = async (stars) => {
+    const res = await rateGame(game._id, stars);
+
+    if (res.blocked) {
+      alert(`You already rated this game ⭐ (${res.rating}/5)`);
+      return;
+    }
+
+    if (!res.error) {
+      setUserRating(stars);
+      setGame((prev) => ({
+        ...prev,
+        rating: res.rating,
+      }));
+    }
+  };
+
+  /**************************************************
+   * GAME NOT FOUND
+   **************************************************/
   if (!game) {
     return (
       <div style={{ padding: 20, color: "#fff" }}>
         <h2>Game Not Found</h2>
-        <button onClick={() => navigate(-1)} style={styles.backBtn}>Go Back</button>
+        <button style={styles.backBtn} onClick={() => navigate(-1)}>
+          Go Back
+        </button>
       </div>
     );
   }
 
-  // Image URL fix
+  /**************************************************
+   * IMAGE URL FIX
+   **************************************************/
   const bannerImg = game.thumbnail?.startsWith("/uploads")
     ? `http://localhost:5000${game.thumbnail}`
     : game.thumbnail;
 
-  // Related games
   const related = allGames.filter(
     (g) => g.genre === game.genre && g._id !== game._id
   );
 
   return (
     <div style={styles.pageFrame}>
-      <button onClick={() => navigate(-1)} style={styles.backBtn}>
+      <button style={styles.backBtn} onClick={() => navigate(-1)}>
         ← Back
       </button>
 
@@ -84,43 +142,48 @@ export default function GameDetail() {
           transition: "opacity 0.6s ease",
         }}
       >
-        {/* ----------------------- BANNER ----------------------- */}
+        {/* -------------------------------------------------------
+            BANNER
+        ------------------------------------------------------- */}
         <div style={styles.bannerWrapper}>
-          <img src={bannerImg} alt={game.title} style={styles.bannerImg} />
+          <img src={bannerImg} style={styles.bannerImg} />
+
           <div style={styles.bannerGradient}></div>
 
           <div style={styles.bannerContent}>
             <h1 style={styles.gameTitle}>{game.title}</h1>
             <p style={styles.genre}>{game.genre}</p>
 
-            <RatingStars rating={game.rating} />
+            {/* ⭐ Rating Component */}
+            <RatingStars
+              rating={game.rating}
+              userRating={userRating}
+              onRate={handleRating}
+              size={26}
+            />
 
             {!startGame && (
-              <button
-                onClick={() => {
-                  setStartGame(true);
-                  setTimeout(() => {
-                    window.scrollTo({ top: 330, behavior: "smooth" });
-                  }, 200);
-                }}
-                style={styles.playBtn}
-              >
+              <button style={styles.playBtn} onClick={handleStartGame}>
                 ▶ Play Now
               </button>
             )}
           </div>
         </div>
 
-        {/* ----------------------- STATS ----------------------- */}
+        {/* -------------------------------------------------------
+            STATS
+        ------------------------------------------------------- */}
         <div style={styles.statsRow}>
           <div style={styles.statBox}>
             <span style={styles.statValue}>{game.playCount}</span>
             <span style={styles.statLabel}>Plays</span>
           </div>
+
           <div style={styles.statBox}>
-            <span style={styles.statValue}>{game.rating}</span>
+            <span style={styles.statValue}>{game.rating.toFixed(1)}</span>
             <span style={styles.statLabel}>Rating</span>
           </div>
+
           <div style={styles.statBox}>
             <span style={styles.statValue}>
               {new Date(game.updatedAt).getFullYear()}
@@ -129,28 +192,26 @@ export default function GameDetail() {
           </div>
         </div>
 
-        {/* ----------------------- DESCRIPTION ----------------------- */}
+        {/* -------------------------------------------------------
+            DESCRIPTION
+        ------------------------------------------------------- */}
         <div style={styles.descriptionBox}>
           <h3 style={styles.aboutTitle}>About This Game</h3>
-          <p style={styles.description}>
-            {game.description || "No description available."}
-          </p>
-
-          <div style={styles.tagsRow}>
-            <span style={styles.tag}>🎮 {game.genre}</span>
-            <span style={styles.tag}>⚡ Fast Gameplay</span>
-            <span style={styles.tag}>🔥 Popular</span>
-          </div>
+          <p style={styles.description}>{game.description || "No description available."}</p>
         </div>
 
-        {/* ----------------------- GAME PLAYER ----------------------- */}
+        {/* -------------------------------------------------------
+            PLAYER
+        ------------------------------------------------------- */}
         {startGame && (
           <div style={styles.playerWrapper}>
             <GamePlayer gameUrl={game.playUrl} />
           </div>
         )}
 
-        {/* ----------------------- RELATED GAMES ----------------------- */}
+        {/* -------------------------------------------------------
+            RELATED GAMES
+        ------------------------------------------------------- */}
         {related.length > 0 && (
           <div style={styles.relatedSection}>
             <h3 style={styles.relatedTitle}>You Might Also Like</h3>
@@ -168,7 +229,6 @@ export default function GameDetail() {
                         ? `http://localhost:5000${g.thumbnail}`
                         : g.thumbnail
                     }
-                    alt={g.title}
                     style={styles.sliderImg}
                   />
                   <p style={styles.sliderName}>{g.title}</p>
@@ -182,7 +242,9 @@ export default function GameDetail() {
   );
 }
 
-/* STYLES (same as your version) */
+/* ------------------------------------
+   STYLES (unchanged)
+------------------------------------ */
 const styles = {
   pageFrame: {
     padding: "20px",
@@ -286,17 +348,6 @@ const styles = {
     color: "#cbd5e1",
     lineHeight: 1.7,
     marginBottom: 14,
-  },
-  tagsRow: {
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-  tag: {
-    background: "rgba(255,255,255,0.12)",
-    padding: "6px 12px",
-    borderRadius: "20px",
-    fontSize: "13px",
   },
   playerWrapper: {
     marginTop: 10,

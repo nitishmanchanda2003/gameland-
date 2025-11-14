@@ -1,31 +1,30 @@
 // src/components/GameModal.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import RatingStars from "./RatingStars";    // ⭐ Add rating display here
 
 export default function GameModal({ game, onClose }) {
   const navigate = useNavigate();
 
   if (!game) return null;
 
-  // ⭐ FIX: Correct backend thumbnail URL
+  // ⭐ Fix backend thumbnail
   const imageSrc = game.thumbnail?.startsWith("/uploads")
     ? `http://localhost:5000${game.thumbnail}`
-    : game.thumbnail || game.image;
+    : game.thumbnail || game.image || "/fallback.png";
 
-  // ⭐ FIX: Slug based navigation
+  // ⭐ Navigate only (NO play count here)
   const handlePlayNow = () => {
-    onClose(); 
-
+    onClose();
     navigate(`/game/${game.slug}?autoPlay=true`);
-
     setTimeout(() => window.scrollTo(0, 0), 50);
   };
 
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-
-        {/* Close */}
+        
+        {/* Close Button */}
         <button style={styles.closeBtn} onClick={onClose}>✕</button>
 
         {/* Thumbnail */}
@@ -37,6 +36,9 @@ export default function GameModal({ game, onClose }) {
         <div style={styles.content}>
           <h2 style={styles.title}>{game.title}</h2>
           <p style={styles.genre}>{game.genre}</p>
+
+          {/* ⭐ Read-only Rating */}
+          <RatingStars rating={game.rating} size={20} />
 
           <p style={styles.description}>
             {game.description || "No description available."}
@@ -74,6 +76,8 @@ const styles = {
     borderRadius: "14px",
     overflow: "hidden",
     position: "relative",
+    maxHeight: "92vh",           // ⭐ Prevent overflow
+    overflowY: "auto",
     boxShadow: "0 12px 30px rgba(0,0,0,0.5)",
   },
   closeBtn: {
@@ -110,13 +114,13 @@ const styles = {
   genre: {
     fontSize: "15px",
     color: "#93c5fd",
-    marginBottom: "14px",
+    marginBottom: "12px",
   },
   description: {
     fontSize: "15px",
     lineHeight: "1.5",
     color: "#d1d5db",
-    marginBottom: "20px",
+    margin: "10px 0 22px",
   },
   playBtn: {
     padding: "12px 20px",

@@ -2,6 +2,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import RatingStars from "./RatingStars";
+import { increasePlay } from "../services/gameActions";
 
 export default function GameCard({ game, onPlay }) {
   const navigate = useNavigate();
@@ -11,10 +12,40 @@ export default function GameCard({ game, onPlay }) {
     ? `http://localhost:5000${game.thumbnail}`
     : game.thumbnail || game.image || "/fallback.png";
 
+  // ⭐ Prevent spam clicks (cooldown)
+  const canPlay = () => {
+    const last = localStorage.getItem(`play_${game._id}`);
+    if (!last) return true;
+
+    const diff = Date.now() - Number(last);
+    return diff > 3000; // 3 seconds cooldown
+  };
+
+  // ⭐ Handle Play Button Click
+  const handlePlayClick = async (e) => {
+    e.stopPropagation();
+
+    if (canPlay() === false) {
+      console.log("Play spam blocked");
+      return;
+    }
+
+    try {
+      await increasePlay(game._id); // backend +1
+
+      // save cooldown
+      localStorage.setItem(`play_${game._id}`, Date.now().toString());
+
+      if (onPlay) onPlay(game); // open modal
+    } catch (err) {
+      console.log("Play count update failed:", err);
+    }
+  };
+
   return (
     <div
       style={styles.card}
-      onClick={() => navigate(`/game/${game.slug}`)} // ⭐ navigate by slug
+      onClick={() => navigate(`/game/${game.slug}`)}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "scale(1.05)";
         e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.5)";
@@ -33,14 +64,12 @@ export default function GameCard({ game, onPlay }) {
         <h3 style={styles.title}>{game.title}</h3>
         <p style={styles.genre}>{game.genre}</p>
 
-        <RatingStars rating={game.rating || 4.3} />
+        {/* ⭐ Read-only Rating */}
+        <RatingStars rating={game.rating || 4.0} size={18} readOnly={true} />
 
         <button
           style={styles.playButton}
-          onClick={(e) => {
-            e.stopPropagation();   // stop card click
-            onPlay(game);          // ⭐ open modal with game object
-          }}
+          onClick={handlePlayClick}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "#3b82f6";
             e.currentTarget.style.transform = "translateY(-2px)";

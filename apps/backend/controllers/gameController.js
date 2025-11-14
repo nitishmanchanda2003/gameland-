@@ -6,106 +6,125 @@ import path from "path";
 import slugify from "slugify";
 
 /*******************************************
+ * SCORE CALCULATIONS
+ *******************************************/
+const calculateTrendingScore = (game) => {
+  const days = (Date.now() - new Date(game.createdAt)) / (1000 * 60 * 60 * 24);
+
+  return (
+    game.rating * 20 +
+    game.playCount * 2 +
+    Math.max(0, 50 - days)
+  );
+};
+
+const calculatePopularScore = (game) => {
+  return game.playCount * 3 + game.rating * 10;
+};
+
+/*******************************************
  * GET ALL GAMES
  *******************************************/
 export const getAllGames = async (req, res) => {
   try {
-    const games = await Game.find().sort({ createdAt: -1 });
-    res.json({ success: true, games });
+    let games = await Game.find().sort({ createdAt: -1 });
+
+    const finalGames = games.map((g) => ({
+      ...g._doc,
+      trendingScore: calculateTrendingScore(g),
+      popularScore: calculatePopularScore(g),
+    }));
+
+    return res.json({ success: true, games: finalGames });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to fetch games" });
+    return res.status(500).json({ success: false, message: "Failed to fetch games" });
   }
 };
 
 /*******************************************
- * GET SINGLE GAME
+ * GET GAME BY ID
  *******************************************/
 export const getGameById = async (req, res) => {
   try {
-    const game = await Game.findById(req.params.id);
-    if (!game) return res.status(404).json({ message: "Game not found" });
+    const g = await Game.findById(req.params.id);
+    if (!g) return res.status(404).json({ message: "Game not found" });
 
-    res.json({ success: true, game });
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching game" });
+    return res.json({
+      success: true,
+      game: {
+        ...g._doc,
+        trendingScore: calculateTrendingScore(g),
+        popularScore: calculatePopularScore(g),
+      },
+    });
+  } catch {
+    return res.status(500).json({ message: "Error fetching game" });
   }
 };
 
 /*******************************************
- * CREATE GAME  (Thumbnail + ZIP Upload)
+ * GET GAME BY SLUG
+ *******************************************/
+export const getGameBySlug = async (req, res) => {
+  try {
+    const g = await Game.findOne({ slug: req.params.slug });
+    if (!g) return res.status(404).json({ message: "Game not found" });
+
+    return res.json({
+      success: true,
+      game: {
+        ...g._doc,
+        trendingScore: calculateTrendingScore(g),
+        popularScore: calculatePopularScore(g),
+      },
+    });
+  } catch {
+    return res.status(500).json({ message: "Error fetching game by slug" });
+  }
+};
+
+/*******************************************
+ * CREATE NEW GAME (Thumbnail + ZIP)
  *******************************************/
 export const createGame = async (req, res) => {
   try {
-    const { title, genre, description, rating } = req.body;
+    const { title, genre, description } = req.body;
 
-    if (!title || !genre) {
-      return res.status(400).json({ message: "Title and genre are required" });
+    if (!req.files?.thumbnail || !req.files?.gameZip) {
+      return res.status(400).json({ message: "Thumbnail & ZIP required" });
     }
 
-    if (!req.files || !req.files.thumbnail || !req.files.gameZip) {
-      return res.status(400).json({
-        message: "Thumbnail image and Game ZIP file are required",
-      });
-    }
-
-    // Create slug
     const slug = slugify(title, { lower: true, strict: true });
 
-    // Files
     const thumbnailFile = req.files.thumbnail[0];
     const zipFile = req.files.gameZip[0];
 
-    // Thumbnail URL
     const thumbnailURL = `/uploads/thumbnails/${thumbnailFile.filename}`;
 
-    // Extract folder
     const extractDir = path.join("public/games", slug);
+    if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true });
 
-    // Clean old folder if exists
-    if (fs.existsSync(extractDir)) {
-      fs.rmSync(extractDir, { recursive: true, force: true });
-    }
     fs.mkdirSync(extractDir, { recursive: true });
-
-    // Extract ZIP
     await extract(zipFile.path, { dir: path.resolve(extractDir) });
 
-    /*******************************************
-     * 1. SEARCH FOR index.html ANYWHERE INSIDE ZIP
-     *******************************************/
-    let finalIndexPath = "";
-
-    function searchForIndex(currentPath) {
-      const items = fs.readdirSync(currentPath);
-
-      for (let item of items) {
-        const fullPath = path.join(currentPath, item);
-        const stat = fs.statSync(fullPath);
-
-        if (stat.isDirectory()) {
-          searchForIndex(fullPath);
-        } else if (item.toLowerCase() === "index.html") {
-          finalIndexPath = fullPath;
-        }
+    // Find index.html
+    let indexPath = "";
+    const searchIndex = (dir) => {
+      const files = fs.readdirSync(dir);
+      for (let f of files) {
+        const full = path.join(dir, f);
+        if (fs.statSync(full).isDirectory()) searchIndex(full);
+        else if (f.toLowerCase() === "index.html") indexPath = full;
       }
+    };
+    searchIndex(extractDir);
+
+    if (!indexPath) {
+      return res.status(400).json({ message: "index.html NOT found" });
     }
 
-    searchForIndex(extractDir);
+    const playUrl = indexPath.replace("public", "").replace(/\\/g, "/");
 
-    if (!finalIndexPath) {
-      return res.status(400).json({
-        message: "index.html NOT FOUND inside uploaded ZIP",
-      });
-    }
-
-    /*******************************************
-     * 2. CONVERT ABSOLUTE PATH → PLAY URL
-     *******************************************/
-    let playUrl = finalIndexPath
-      .replace("public", "")
-      .replace(/\\/g, "/");
-
-    // Save to DB
     const game = await Game.create({
       title,
       slug,
@@ -113,22 +132,24 @@ export const createGame = async (req, res) => {
       description,
       thumbnail: thumbnailURL,
       playUrl,
-      rating: rating || 4.0,
+      rating: 4,
+      totalRatings: 0,
+      ratedIPs: [],
       playCount: 0,
+      playedIPs: [],
     });
 
-    res.json({
+    return res.json({
       success: true,
-      message: "Game uploaded successfully 🎮",
-      game,
+      message: "Game Uploaded",
+      game: {
+        ...game._doc,
+        trendingScore: calculateTrendingScore(game),
+        popularScore: calculatePopularScore(game),
+      },
     });
-
   } catch (err) {
-    console.error("GAME UPLOAD ERROR:", err);
-    res.status(500).json({
-      message: "Failed to upload game",
-      error: err.message,
-    });
+    return res.status(500).json({ message: "Failed to upload game" });
   }
 };
 
@@ -137,15 +158,20 @@ export const createGame = async (req, res) => {
  *******************************************/
 export const updateGame = async (req, res) => {
   try {
-    const game = await Game.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-
+    const game = await Game.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!game) return res.status(404).json({ message: "Game not found" });
 
-    res.json({ success: true, message: "Game updated", game });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to update game" });
+    return res.json({
+      success: true,
+      message: "Game updated",
+      game: {
+        ...game._doc,
+        trendingScore: calculateTrendingScore(game),
+        popularScore: calculatePopularScore(game),
+      },
+    });
+  } catch {
+    return res.status(500).json({ message: "Failed to update game" });
   }
 };
 
@@ -154,18 +180,83 @@ export const updateGame = async (req, res) => {
  *******************************************/
 export const deleteGame = async (req, res) => {
   try {
-    const game = await Game.findByIdAndDelete(req.params.id);
+    const g = await Game.findByIdAndDelete(req.params.id);
+    if (!g) return res.status(404).json({ message: "Game not found" });
 
+    const folder = path.join("public/games", g.slug);
+    if (fs.existsSync(folder)) fs.rmSync(folder, { recursive: true });
+
+    return res.json({ success: true, message: "Game deleted" });
+  } catch {
+    return res.status(500).json({ message: "Failed to delete game" });
+  }
+};
+
+/*******************************************
+ * ⭐ INCREASE PLAYCOUNT (Anti-Spam)
+ *******************************************/
+export const increasePlayCount = async (req, res) => {
+  try {
+    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+    const game = await Game.findById(req.params.id);
     if (!game) return res.status(404).json({ message: "Game not found" });
 
-    const gameFolder = path.join("public/games", game.slug);
+    const now = Date.now();
+    const last = game.playedIPs.find((p) => p.ip === ip);
 
-    if (fs.existsSync(gameFolder)) {
-      fs.rmSync(gameFolder, { recursive: true, force: true });
+    // // 10-minute cooldown
+    if (last && now - last.time < 10 * 60 * 1000) {
+      return res.json({ success: true, playCount: game.playCount });
     }
 
-    res.json({ success: true, message: "Game deleted" });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to delete game" });
+    game.playCount += 1;
+
+    game.playedIPs = [
+      ...game.playedIPs.filter((p) => p.ip !== ip),
+      { ip, time: now },
+    ];
+
+    await game.save();
+
+    return res.json({ success: true, playCount: game.playCount });
+  } catch {
+    return res.status(500).json({ message: "Failed to increase play" });
+  }
+};
+
+/*******************************************
+ * ⭐ RATE GAME (Perfect Average + Anti-Spam)
+ *******************************************/
+export const rateGame = async (req, res) => {
+  try {
+    const { stars } = req.body;
+    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+    if (!stars || stars < 1 || stars > 5)
+      return res.status(400).json({ message: "Stars must be 1-5" });
+
+    const game = await Game.findById(req.params.id);
+    if (!game) return res.status(404).json({ message: "Game not found" });
+
+    if (game.ratedIPs.includes(ip)) {
+      return res.status(400).json({ message: "Already rated from this IP" });
+    }
+
+    // Update average rating
+    game.rating =
+      (game.rating * game.totalRatings + stars) / (game.totalRatings + 1);
+
+    game.totalRatings += 1;
+    game.ratedIPs.push(ip);
+
+    await game.save();
+
+    return res.json({
+      success: true,
+      rating: Number(game.rating.toFixed(1)),
+    });
+  } catch {
+    return res.status(500).json({ message: "Failed to rate game" });
   }
 };

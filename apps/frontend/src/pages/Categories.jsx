@@ -19,7 +19,9 @@ export default function Categories() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [genreFilter, setGenreFilter] = useState(initialGenre);
-  const [sortOrder, setSortOrder] = useState("desc");
+
+  // ⭐ NEW: Advanced Sorting Options
+  const [sortType, setSortType] = useState("rating_desc");
 
   /**********************************************
    * FETCH GAMES FROM BACKEND
@@ -38,7 +40,7 @@ export default function Categories() {
   }, []);
 
   useEffect(() => {
-    setTimeout(() => setAnimate(true), 100);
+    setTimeout(() => setAnimate(true), 120);
   }, []);
 
   /**********************************************
@@ -53,30 +55,49 @@ export default function Categories() {
   }, [games]);
 
   /**********************************************
-   * FILTER + SEARCH + SORT
+   * FILTER + SEARCH + SORT + TRENDING/POPULAR
    **********************************************/
   const filteredGames = useMemo(() => {
     let list = [...games];
 
-    // Search
+    // 🔍 Search Filter
     if (searchTerm.trim() !== "") {
       list = list.filter((g) =>
         g.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Genre filter
+    // 🎭 Genre Filter
     if (genreFilter !== "All") {
       list = list.filter((g) => g.genre === genreFilter);
     }
 
-    // Sort
-    list.sort((a, b) =>
-      sortOrder === "asc" ? a.rating - b.rating : b.rating - a.rating
-    );
+    // 🔄 Sorting System
+    switch (sortType) {
+      case "rating_desc":
+        list.sort((a, b) => b.rating - a.rating);
+        break;
+      case "rating_asc":
+        list.sort((a, b) => a.rating - b.rating);
+        break;
+      case "plays_desc":
+        list.sort((a, b) => b.playCount - a.playCount);
+        break;
+      case "plays_asc":
+        list.sort((a, b) => a.playCount - b.playCount);
+        break;
+      case "trending_desc":
+        list.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
+        break;
+      case "popular_desc":
+        list.sort((a, b) => (b.popularScore || 0) - (a.popularScore || 0));
+        break;
+      default:
+        break;
+    }
 
     return list;
-  }, [games, searchTerm, genreFilter, sortOrder]);
+  }, [games, searchTerm, genreFilter, sortType]);
 
   const handleGenreSelect = (genre) => {
     setGenreFilter(genre);
@@ -102,7 +123,7 @@ export default function Categories() {
     >
       {/* PAGE TITLE */}
       <h1 style={styles.heading}>Browse Games by Category</h1>
-      <p style={styles.subText}>Explore by genres & discover new games 🎮</p>
+      <p style={styles.subText}>Explore genres & discover new games 🎮</p>
 
       {/* SEARCH + FILTERS */}
       <div style={styles.topBar}>
@@ -121,13 +142,18 @@ export default function Categories() {
             ))}
           </select>
 
+          {/* ⭐ NEW Advanced Sorting Menu */}
           <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
+            value={sortType}
+            onChange={(e) => setSortType(e.target.value)}
             style={styles.select}
           >
-            <option value="desc">Rating: High → Low</option>
-            <option value="asc">Rating: Low → High</option>
+            <option value="rating_desc">Rating: High → Low</option>
+            <option value="rating_asc">Rating: Low → High</option>
+            <option value="plays_desc">Plays: High → Low</option>
+            <option value="plays_asc">Plays: Low → High</option>
+            <option value="trending_desc">🔥 Trending</option>
+            <option value="popular_desc">⭐ Popular</option>
           </select>
         </div>
       </div>
@@ -221,7 +247,7 @@ const styles = {
 
   select: {
     padding: "10px 14px",
-    background: "#1e293b",         // DARK BACKGROUND FIX
+    background: "#1e293b",
     border: "1px solid #334155",
     borderRadius: "8px",
     color: "#e2e8f0",
@@ -230,7 +256,6 @@ const styles = {
     outline: "none",
   },
 
-  /* ⭐ FIXED OPTION BACKGROUND */
   option: {
     background: "#0f172a",
     color: "#e2e8f0",

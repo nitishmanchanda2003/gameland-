@@ -4,14 +4,15 @@ import slugify from "slugify";
 
 const gameSchema = new mongoose.Schema(
   {
-    // Game title
+    /************************************
+     * BASIC GAME INFO
+     ************************************/
     title: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // URL-friendly slug
     slug: {
       type: String,
       unique: true,
@@ -20,7 +21,6 @@ const gameSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Genre / Category
     genre: {
       type: String,
       required: true,
@@ -28,25 +28,24 @@ const gameSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Thumbnail image path
     thumbnail: {
       type: String,
       required: true,
     },
 
-    // Playable game URL -> /games/<slug>/index.html
     playUrl: {
       type: String,
       required: true,
     },
 
-    // Short description
     description: {
       type: String,
       default: "",
     },
 
-    // Rating
+    /************************************
+     * ⭐ RATING SYSTEM
+     ************************************/
     rating: {
       type: Number,
       default: 4.0,
@@ -54,7 +53,47 @@ const gameSchema = new mongoose.Schema(
       max: 5,
     },
 
-    // Flags
+    totalRatings: {
+      type: Number,
+      default: 0,
+    },
+
+    ratedIPs: {
+      type: [String],   // array of IPs
+      default: [],
+    },
+
+    /************************************
+     * ⭐ PLAY COUNT SYSTEM
+     ************************************/
+    playCount: {
+      type: Number,
+      default: 0,
+    },
+
+    playedIPs: [
+      {
+        ip: { type: String },
+        time: { type: Number }, // timestamp
+      },
+    ],
+
+    /************************************
+     * ⭐ ANALYTICS (CALCULATED)
+     ************************************/
+    trendingScore: {
+      type: Number,
+      default: 0,
+    },
+
+    popularScore: {
+      type: Number,
+      default: 0,
+    },
+
+    /************************************
+     * FLAGS
+     ************************************/
     isFeatured: {
       type: Boolean,
       default: false,
@@ -65,13 +104,6 @@ const gameSchema = new mongoose.Schema(
       default: false,
     },
 
-    // Analytics
-    playCount: {
-      type: Number,
-      default: 0,
-    },
-
-    // Which admin uploaded it
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -82,9 +114,9 @@ const gameSchema = new mongoose.Schema(
   }
 );
 
-/******************************************
- * AUTO SLUG CREATE IF MISSING
- ******************************************/
+/************************************
+ * AUTO SLUG
+ ************************************/
 gameSchema.pre("validate", function (next) {
   if (!this.slug) {
     this.slug = slugify(this.title, { lower: true, strict: true });
@@ -92,11 +124,13 @@ gameSchema.pre("validate", function (next) {
   next();
 });
 
-/******************************************
- * Indexes for faster search
- ******************************************/
+/************************************
+ * INDEXES
+ ************************************/
 gameSchema.index({ title: 1 });
 gameSchema.index({ slug: 1 });
 gameSchema.index({ genre: 1 });
+gameSchema.index({ trendingScore: -1 });
+gameSchema.index({ popularScore: -1 });
 
 export default mongoose.model("Game", gameSchema);

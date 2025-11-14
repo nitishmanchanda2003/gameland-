@@ -32,21 +32,28 @@ export const getGameById = (id) => API.get(`/games/${id}`);
 // CREATE — Thumbnail + Zip upload
 export const createGame = (formData) =>
   API.post("/games", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+    headers: { "Content-Type": "multipart/form-data" },
   });
 
 // UPDATE — Thumbnail + Zip re-upload possible
 export const updateGame = (id, formData) =>
   API.put(`/games/${id}`, formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+    headers: { "Content-Type": "multipart/form-data" },
   });
 
 // DELETE
 export const deleteGame = (id) => API.delete(`/games/${id}`);
+
+/**************************************
+ *  GAME ACTIONS (NEW)
+ **************************************/
+
+// ⭐ Increase play count
+export const increasePlayCount = (id) => API.post(`/games/${id}/play`);
+
+// ⭐ Rate the game
+export const rateGame = (id, rating) =>
+  API.post(`/games/${id}/rate`, { rating });
 
 /**************************************
  *  TEST API

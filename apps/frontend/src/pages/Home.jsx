@@ -1,5 +1,5 @@
 // src/pages/Home.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { getAllGames } from "../services/api";
 import GameCard from "../components/GameCard";
 import GameModal from "../components/GameModal";
@@ -9,49 +9,58 @@ export default function Home() {
   const [selectedGame, setSelectedGame] = useState(null);
   const [animate, setAnimate] = useState(false);
 
+  // -------------------------------------------------
+  // ⭐ Fetch Games Once
+  // -------------------------------------------------
   useEffect(() => {
     async function loadGames() {
       try {
         const res = await getAllGames();
-        setGames(res.data.games);
-      } catch (e) {
-        console.log("Failed to load games:", e);
+        setGames(res.data.games || []);
+      } catch (err) {
+        console.log("Failed to load games:", err);
       }
     }
     loadGames();
   }, []);
 
+  // Page fade animation
   useEffect(() => {
-    const t = setTimeout(() => setAnimate(true), 80);
+    const t = setTimeout(() => setAnimate(true), 100);
     return () => clearTimeout(t);
   }, []);
 
-  // -------------------------------
-  // ⭐ TRENDING (industry formula)
-  // -------------------------------
-  const trending = [...games]
-    .map((g) => ({
-      ...g,
-      trendScore: g.playCount + g.rating * 20,
-    }))
-    .sort((a, b) => b.trendScore - a.trendScore)
-    .slice(0, 7);
+  // -------------------------------------------------
+  // ⭐ TRENDING (backend trendingScore)
+  // -------------------------------------------------
+  const trending = useMemo(() => {
+    return [...games]
+      .sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0))
+      .slice(0, 7);
+  }, [games]);
 
-  // -------------------------------
-  // ⭐ POPULAR (all-time hits)
-  // -------------------------------
-  const popular = [...games].sort((a, b) => b.playCount - a.playCount);
+  // -------------------------------------------------
+  // ⭐ POPULAR
+  // -------------------------------------------------
+  const popular = useMemo(() => {
+    return [...games].sort(
+      (a, b) => (b.popularScore || 0) - (a.popularScore || 0)
+    );
+  }, [games]);
 
-  // -------------------------------
+  // -------------------------------------------------
   // ⭐ NEW RELEASES
-  // -------------------------------
-  const newReleases = [...games].sort(
-    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-  );
+  // -------------------------------------------------
+  const newReleases = useMemo(() => {
+    return [...games].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+  }, [games]);
 
   return (
     <div style={styles.wrapper}>
-      {/* HERO */}
+
+      {/* ---------------- HERO SECTION ---------------- */}
       <section
         style={{
           ...styles.hero,
@@ -66,7 +75,7 @@ export default function Home() {
 
       <div style={styles.sectionDivider}></div>
 
-      {/* 🔥 TRENDING */}
+      {/* ---------------- TRENDING ---------------- */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitleGlow}>🔥 Trending Games</h2>
 
@@ -87,7 +96,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ⭐ POPULAR */}
+      {/* ---------------- POPULAR ---------------- */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitleGlow}>⭐ Popular Games</h2>
 
@@ -107,7 +116,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 🆕 NEW RELEASES */}
+      {/* ---------------- NEW RELEASES ---------------- */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitleGlow}>🆕 New Releases</h2>
 
@@ -127,6 +136,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---------------- GAME MODAL ---------------- */}
       <GameModal game={selectedGame} onClose={() => setSelectedGame(null)} />
     </div>
   );

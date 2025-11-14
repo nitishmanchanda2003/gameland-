@@ -31,31 +31,56 @@ export default function AddGame() {
   }, [user, navigate]);
 
   /************************************************
-   * SUBMIT FORM (multipart)
+   * HANDLE FILE CHANGE (instant & stable)
+   ************************************************/
+  const handleThumbnail = (e) => {
+    const file = e.target.files?.[0] || null;
+    setThumbnailFile(file);
+  };
+
+  const handleZipFile = (e) => {
+    const file = e.target.files?.[0] || null;
+    setZipFile(file);
+  };
+
+  /************************************************
+   * SUBMIT FORM (100% stable)
    ************************************************/
   const handleSubmit = async () => {
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (!title || !genre || !thumbnailFile || !zipFile) {
-      setErrorMsg("Please fill all required fields including files.");
+    if (!title.trim() || !genre.trim()) {
+      setErrorMsg("Title and Genre are required.");
+      return;
+    }
+
+    if (!thumbnailFile || !zipFile) {
+      setErrorMsg("Please select both Thumbnail and ZIP file.");
       return;
     }
 
     try {
       setLoading(true);
 
-      // FormData for file upload
+      // ⏳ FIX: Ensure React has fully set file state before submit
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      if (!thumbnailFile || !zipFile) {
+        setErrorMsg("File selection failed — pick again.");
+        setLoading(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append("title", title);
       formData.append("genre", genre);
       formData.append("description", description);
       formData.append("rating", Number(rating));
-      formData.append("slug", title.toLowerCase().replace(/\s+/g, "-"));
 
-      // FILES
-      formData.append("thumbnail", thumbnailFile);
-      formData.append("gameZip", zipFile);
+      // FILES (IMPORTANT: filename included!)
+      formData.append("thumbnail", thumbnailFile, thumbnailFile.name);
+      formData.append("gameZip", zipFile, zipFile.name);
 
       const res = await createGame(formData);
 
@@ -108,14 +133,14 @@ export default function AddGame() {
           />
         </div>
 
-        {/* THUMBNAIL FILE */}
+        {/* THUMBNAIL */}
         <div style={styles.field}>
           <label style={styles.label}>Thumbnail Image *</label>
           <input
             type="file"
             accept="image/png, image/jpeg"
             style={styles.input}
-            onChange={(e) => setThumbnailFile(e.target.files[0])}
+            onChange={handleThumbnail}
           />
           {thumbnailFile && (
             <p style={styles.fileName}>Selected: {thumbnailFile.name}</p>
@@ -129,7 +154,7 @@ export default function AddGame() {
             type="file"
             accept=".zip"
             style={styles.input}
-            onChange={(e) => setZipFile(e.target.files[0])}
+            onChange={handleZipFile}
           />
           {zipFile && (
             <p style={styles.fileName}>Selected: {zipFile.name}</p>
@@ -157,7 +182,7 @@ export default function AddGame() {
 }
 
 /****************************************
- *  PREMIUM UI STYLES
+ *  PREMIUM UI (unchanged)
  ****************************************/
 const styles = {
   wrapper: {
@@ -168,7 +193,6 @@ const styles = {
     padding: "40px 20px",
     position: "relative",
   },
-
   bigGlow: {
     position: "absolute",
     top: "-40%",
@@ -179,7 +203,6 @@ const styles = {
     filter: "blur(140px)",
     zIndex: -1,
   },
-
   card: {
     width: "100%",
     maxWidth: "600px",
@@ -191,18 +214,14 @@ const styles = {
     boxShadow: "0 0 40px rgba(0,0,0,0.4)",
     transition: "0.4s",
   },
-
   title: {
     fontSize: 30,
     fontWeight: 800,
     marginBottom: 20,
     textAlign: "center",
   },
-
   label: { marginBottom: 5, fontSize: 14, color: "#cbd5e1" },
-
   field: { marginBottom: 18 },
-
   input: {
     width: "100%",
     padding: "12px 14px",
@@ -211,7 +230,6 @@ const styles = {
     background: "rgba(255,255,255,0.05)",
     color: "#fff",
   },
-
   textarea: {
     width: "100%",
     padding: "12px 14px",
@@ -221,13 +239,11 @@ const styles = {
     background: "rgba(255,255,255,0.05)",
     color: "#fff",
   },
-
   fileName: {
     color: "#93c5fd",
     marginTop: 5,
     fontSize: 13,
   },
-
   btn: {
     width: "100%",
     padding: "12px",
@@ -240,7 +256,6 @@ const styles = {
     cursor: "pointer",
     marginTop: 10,
   },
-
   error: {
     background: "rgba(239,68,68,0.15)",
     border: "1px solid rgba(239,68,68,0.35)",
@@ -249,7 +264,6 @@ const styles = {
     color: "#fca5a5",
     marginBottom: 15,
   },
-
   success: {
     background: "rgba(16,185,129,0.15)",
     border: "1px solid rgba(16,185,129,0.35)",
