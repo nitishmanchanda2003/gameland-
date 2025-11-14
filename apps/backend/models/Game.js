@@ -58,10 +58,13 @@ const gameSchema = new mongoose.Schema(
       default: 0,
     },
 
-    ratedIPs: {
-      type: [String],   // array of IPs
-      default: [],
-    },
+    // ⭐ IMPORTANT CHANGE — store IP + stars
+    ratedIPs: [
+      {
+        ip: { type: String },
+        stars: { type: Number, min: 1, max: 5 },
+      },
+    ],
 
     /************************************
      * ⭐ PLAY COUNT SYSTEM

@@ -10,7 +10,6 @@ export default function GameDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
   const autoPlay = searchParams.get("autoPlay") === "true";
 
   const [game, setGame] = useState(null);
@@ -20,7 +19,7 @@ export default function GameDetail() {
   const [userRating, setUserRating] = useState(null); // ⭐ local rating
 
   /**************************************************
-   * LOAD GAMES FROM BACKEND
+   * LOAD GAMES
    **************************************************/
   useEffect(() => {
     async function loadData() {
@@ -32,10 +31,10 @@ export default function GameDetail() {
         const found = list.find((x) => x.slug === slug);
         setGame(found);
 
-        // ⭐ Restore user rating if already rated
+        // ⭐ Restore previous rating from localStorage
         if (found) {
-          const stored = localStorage.getItem(`rated_${found._id}`);
-          if (stored) setUserRating(Number(stored));
+          const ls = localStorage.getItem(`rated_${found._id}`);
+          if (ls) setUserRating(Number(ls));
         }
       } catch (err) {
         console.log("Fetch failed:", err);
@@ -51,16 +50,13 @@ export default function GameDetail() {
   useEffect(() => {
     if (autoPlay) {
       setTimeout(() => {
-        window.scrollTo({
-          top: 330,
-          behavior: "smooth",
-        });
+        window.scrollTo({ top: 330, behavior: "smooth" });
       }, 250);
     }
   }, [autoPlay]);
 
   /**************************************************
-   * ⭐ PLAY GAME + SAFE PLAY COUNTER
+   * ⭐ SAFE PLAY COUNT
    **************************************************/
   const handleStartGame = async () => {
     setStartGame(true);
@@ -69,14 +65,13 @@ export default function GameDetail() {
       const result = await increasePlay(game._id);
 
       if (!result?.ignored) {
-        // Only update UI when backend accepted the count
         setGame((prev) => ({
           ...prev,
           playCount: prev.playCount + 1,
         }));
       }
     } catch (e) {
-      console.log("Play update failed:", e);
+      console.log("Play error:", e);
     }
 
     setTimeout(() => {
@@ -85,22 +80,28 @@ export default function GameDetail() {
   };
 
   /**************************************************
-   * ⭐ RATE GAME
+   * ⭐ HANDLE EDITABLE RATING
    **************************************************/
   const handleRating = async (stars) => {
-    const res = await rateGame(game._id, stars);
+    try {
+      const res = await rateGame(game._id, stars);
 
-    if (res.blocked) {
-      alert(`You already rated this game ⭐ (${res.rating}/5)`);
-      return;
-    }
+      if (!res.success) {
+        alert(res.message || "Rating failed");
+        return;
+      }
 
-    if (!res.error) {
+      // ⭐ Save locally so UI remembers user's choice
+      localStorage.setItem(`rated_${game._id}`, stars);
       setUserRating(stars);
+
+      // ⭐ Update new average rating in UI
       setGame((prev) => ({
         ...prev,
         rating: res.rating,
       }));
+    } catch (err) {
+      console.log("Rating error:", err);
     }
   };
 
@@ -119,7 +120,7 @@ export default function GameDetail() {
   }
 
   /**************************************************
-   * IMAGE URL FIX
+   * IMAGE FIX
    **************************************************/
   const bannerImg = game.thumbnail?.startsWith("/uploads")
     ? `http://localhost:5000${game.thumbnail}`
@@ -139,7 +140,7 @@ export default function GameDetail() {
         style={{
           ...styles.pageWrapper,
           opacity: animate ? 1 : 0,
-          transition: "opacity 0.6s ease",
+          transition: "opacity .6s ease",
         }}
       >
         {/* -------------------------------------------------------
@@ -147,20 +148,21 @@ export default function GameDetail() {
         ------------------------------------------------------- */}
         <div style={styles.bannerWrapper}>
           <img src={bannerImg} style={styles.bannerImg} />
-
           <div style={styles.bannerGradient}></div>
 
           <div style={styles.bannerContent}>
             <h1 style={styles.gameTitle}>{game.title}</h1>
             <p style={styles.genre}>{game.genre}</p>
 
-            {/* ⭐ Rating Component */}
+            {/* ⭐ Editable Rating Component */}
             <RatingStars
-              rating={game.rating}
-              userRating={userRating}
-              onRate={handleRating}
-              size={26}
-            />
+  rating={game.rating}
+  userRating={userRating}
+  onRate={handleRating}
+  size={26}
+  showUserTag={true}
+/>
+
 
             {!startGame && (
               <button style={styles.playBtn} onClick={handleStartGame}>
@@ -197,7 +199,9 @@ export default function GameDetail() {
         ------------------------------------------------------- */}
         <div style={styles.descriptionBox}>
           <h3 style={styles.aboutTitle}>About This Game</h3>
-          <p style={styles.description}>{game.description || "No description available."}</p>
+          <p style={styles.description}>
+            {game.description || "No description available."}
+          </p>
         </div>
 
         {/* -------------------------------------------------------
@@ -210,7 +214,7 @@ export default function GameDetail() {
         )}
 
         {/* -------------------------------------------------------
-            RELATED GAMES
+            RELATED
         ------------------------------------------------------- */}
         {related.length > 0 && (
           <div style={styles.relatedSection}>
@@ -242,9 +246,7 @@ export default function GameDetail() {
   );
 }
 
-/* ------------------------------------
-   STYLES (unchanged)
------------------------------------- */
+/* ------------------ STYLES (same as before) ------------------ */
 const styles = {
   pageFrame: {
     padding: "20px",
@@ -312,7 +314,6 @@ const styles = {
     fontSize: "16px",
     fontWeight: 700,
     cursor: "pointer",
-    boxShadow: "0 4px 18px rgba(16,185,129,0.4)",
   },
   statsRow: {
     display: "flex",

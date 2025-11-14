@@ -9,7 +9,9 @@ import slugify from "slugify";
  * SCORE CALCULATIONS
  *******************************************/
 const calculateTrendingScore = (game) => {
-  const days = (Date.now() - new Date(game.createdAt)) / (1000 * 60 * 60 * 24);
+  const days =
+    (Date.now() - new Date(game.createdAt).getTime()) /
+    (1000 * 60 * 60 * 24);
 
   return (
     game.rating * 20 +
@@ -84,7 +86,7 @@ export const getGameBySlug = async (req, res) => {
 };
 
 /*******************************************
- * CREATE NEW GAME (Thumbnail + ZIP)
+ * CREATE NEW GAME
  *******************************************/
 export const createGame = async (req, res) => {
   try {
@@ -107,17 +109,16 @@ export const createGame = async (req, res) => {
     fs.mkdirSync(extractDir, { recursive: true });
     await extract(zipFile.path, { dir: path.resolve(extractDir) });
 
-    // Find index.html
     let indexPath = "";
-    const searchIndex = (dir) => {
-      const files = fs.readdirSync(dir);
-      for (let f of files) {
-        const full = path.join(dir, f);
-        if (fs.statSync(full).isDirectory()) searchIndex(full);
-        else if (f.toLowerCase() === "index.html") indexPath = full;
+    const findIndex = (dir) => {
+      const items = fs.readdirSync(dir);
+      for (let file of items) {
+        const full = path.join(dir, file);
+        if (fs.statSync(full).isDirectory()) findIndex(full);
+        else if (file.toLowerCase() === "index.html") indexPath = full;
       }
     };
-    searchIndex(extractDir);
+    findIndex(extractDir);
 
     if (!indexPath) {
       return res.status(400).json({ message: "index.html NOT found" });
@@ -135,8 +136,8 @@ export const createGame = async (req, res) => {
       rating: 4,
       totalRatings: 0,
       ratedIPs: [],
-      playCount: 0,
       playedIPs: [],
+      playCount: 0,
     });
 
     return res.json({
@@ -158,7 +159,10 @@ export const createGame = async (req, res) => {
  *******************************************/
 export const updateGame = async (req, res) => {
   try {
-    const game = await Game.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const game = await Game.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+
     if (!game) return res.status(404).json({ message: "Game not found" });
 
     return res.json({
@@ -205,9 +209,8 @@ export const increasePlayCount = async (req, res) => {
     const now = Date.now();
     const last = game.playedIPs.find((p) => p.ip === ip);
 
-    // // 10-minute cooldown
     if (last && now - last.time < 10 * 60 * 1000) {
-      return res.json({ success: true, playCount: game.playCount });
+      return res.json({ success: true, playCount: game.playCount, ignored: true });
     }
 
     game.playCount += 1;
@@ -226,7 +229,7 @@ export const increasePlayCount = async (req, res) => {
 };
 
 /*******************************************
- * ⭐ RATE GAME (Perfect Average + Anti-Spam)
+ * ⭐ RATE GAME (EDITABLE RATING SYSTEM)
  *******************************************/
 export const rateGame = async (req, res) => {
   try {
@@ -234,21 +237,35 @@ export const rateGame = async (req, res) => {
     const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
     if (!stars || stars < 1 || stars > 5)
-      return res.status(400).json({ message: "Stars must be 1-5" });
+      return res.status(400).json({ message: "Stars must be 1–5" });
 
     const game = await Game.findById(req.params.id);
     if (!game) return res.status(404).json({ message: "Game not found" });
 
-    if (game.ratedIPs.includes(ip)) {
-      return res.status(400).json({ message: "Already rated from this IP" });
+    const existing = game.ratedIPs.find((r) => r.ip === ip);
+
+    if (existing) {
+      const oldStars = existing.stars;
+
+      existing.stars = stars;
+
+      game.rating = Number(
+        (
+          (game.rating * game.totalRatings - oldStars + stars) /
+          game.totalRatings
+        ).toFixed(2)
+      );
+    } else {
+      game.rating = Number(
+        (
+          (game.rating * game.totalRatings + stars) /
+          (game.totalRatings + 1)
+        ).toFixed(2)
+      );
+
+      game.totalRatings += 1;
+      game.ratedIPs.push({ ip, stars });
     }
-
-    // Update average rating
-    game.rating =
-      (game.rating * game.totalRatings + stars) / (game.totalRatings + 1);
-
-    game.totalRatings += 1;
-    game.ratedIPs.push(ip);
 
     await game.save();
 
@@ -256,7 +273,7 @@ export const rateGame = async (req, res) => {
       success: true,
       rating: Number(game.rating.toFixed(1)),
     });
-  } catch {
+  } catch (err) {
     return res.status(500).json({ message: "Failed to rate game" });
   }
 };
