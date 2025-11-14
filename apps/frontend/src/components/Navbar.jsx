@@ -1,20 +1,22 @@
 // src/components/Navbar.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";   // ⭐ AUTH
+import { useAuth } from "../context/AuthContext";
 
 const BREAKPOINT = 900;
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-
-  const { user, logout } = useAuth();   // ⭐ GLOBAL USER + LOGOUT
+  const { user, logout } = useAuth();
 
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth <= BREAKPOINT : false
   );
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // mobile menu
+  const [menuOpen, setMenuOpen] = useState(false); // profile dropdown
+  const dropdownRef = useRef(null);
+  const avatarBtnRef = useRef(null);
 
   useEffect(() => setOpen(false), [location.pathname]);
 
@@ -29,6 +31,30 @@ export default function Navbar() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // close dropdown on outside click or ESC
+  useEffect(() => {
+    function handleDocClick(e) {
+      if (
+        menuOpen &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target) &&
+        avatarBtnRef.current &&
+        !avatarBtnRef.current.contains(e.target)
+      ) {
+        setMenuOpen(false);
+      }
+    }
+    function handleEsc(e) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleDocClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [menuOpen]);
+
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/categories", label: "Categories" },
@@ -36,14 +62,81 @@ export default function Navbar() {
   ];
 
   const handleLogout = () => {
-    logout();         // ⭐ CLEAR AUTH
+    setMenuOpen(false);
+    logout();
     navigate("/login");
   };
 
+  // ---------- avatar / name helpers ----------
+  const getDisplayName = () => {
+    if (!user) return "";
+    if (user.name) return user.name;
+    if (user.email) return user.email.split("@")[0];
+    return "User";
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  // treat user presence as "online" for UI (replace with real status if available)
+  const isOnline = !!user;
+
+  function Avatar({ size = 40 }) {
+    const name = getDisplayName();
+    const pic = user?.picture || user?.avatar || null;
+    const avatarStyle = {
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: 700,
+      fontSize: Math.round(size / 2.6),
+      color: "#07204a",
+      background: "linear-gradient(90deg,#a5f3fc,#60a5fa)",
+      overflow: "hidden",
+      flexShrink: 0,
+      boxShadow: "0 6px 18px rgba(2,6,23,0.6)",
+    };
+
+    if (pic) {
+      return (
+        <img
+          src={pic}
+          alt={name}
+          style={{
+            ...avatarStyle,
+            objectFit: "cover",
+            display: "block",
+          }}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      );
+    }
+
+    return <div style={avatarStyle}>{getInitials(name)}</div>;
+  }
+
   return (
     <header style={styles.header}>
+      {/* small style tag for the status-dot pulse */}
+      <style>{`
+        @keyframes pulseDot {
+          0% { box-shadow: 0 0 0 0 rgba(96,165,250,0.28); }
+          70% { box-shadow: 0 0 0 8px rgba(96,165,250,0); }
+          100% { box-shadow: 0 0 0 0 rgba(96,165,250,0); }
+        }
+      `}</style>
+
       <nav style={styles.nav}>
-        
         {/* LEFT */}
         <div style={styles.left}>
           <Link to="/" style={styles.brand}>
@@ -69,70 +162,156 @@ export default function Navbar() {
         </div>
 
         {/* RIGHT (desktop) */}
-        {!isMobile && (
-          <div style={styles.right}>
-            {!user ? (
-              <>
-                <Link
-                  to="/login"
-                  style={styles.btnLogin}
-                >
-                  Login
-                </Link>
+        <div style={styles.right}>
+          {!isMobile && (
+            <>
+              {!user ? (
+                <>
+                  <Link to="/login" style={styles.btnLogin}>
+                    Login
+                  </Link>
+                  <Link to="/register" style={styles.btnRegister}>
+                    Register
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <div style={styles.userBox} title={getDisplayName()}>
+                    {/* avatar + greeting inline */}
+                    <button
+                      ref={avatarBtnRef}
+                      onClick={() => setMenuOpen((s) => !s)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setMenuOpen((s) => !s);
+                        }
+                      }}
+                      aria-expanded={menuOpen}
+                      aria-haspopup="true"
+                      style={styles.avatarButton}
+                    >
+                      <div style={{ position: "relative", display: "inline-block" }}>
+                        <Avatar size={40} />
+                        {/* status dot */}
+                        <span
+                          aria-hidden
+                          style={{
+                            position: "absolute",
+                            right: -2,
+                            bottom: -2,
+                            width: 12,
+                            height: 12,
+                            borderRadius: 12,
+                            border: "2px solid rgba(7,10,16,0.9)",
+                            background: isOnline ? "#60a5fa" : "#334155",
+                            boxShadow: isOnline ? "0 0 0 0 rgba(96,165,250,0.32)" : "none",
+                            animation: isOnline ? "pulseDot 1.8s infinite" : "none",
+                          }}
+                        />
+                      </div>
+                    </button>
 
-                <Link
-                  to="/register"
-                  style={styles.btnRegister}
-                >
-                  Register
-                </Link>
-              </>
-            ) : (
+                    <span style={styles.userNameText}>Hello, {getDisplayName()}</span>
+                  </div>
+
+                  <div style={{ position: "relative" }}>
+                    {/* dropdown with nice animation */}
+                    <div
+                      ref={dropdownRef}
+                      style={{
+                        ...styles.dropdown,
+                        opacity: menuOpen ? 1 : 0,
+                        transform: menuOpen
+                          ? "translateY(6px) scale(1)"
+                          : "translateY(0px) scale(0.98)",
+                        pointerEvents: menuOpen ? "auto" : "none",
+                      }}
+                      role="menu"
+                      aria-hidden={!menuOpen}
+                    >
+                      {/* profile header */}
+                      <div style={styles.dropdownHeader}>
+                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                          <Avatar size={52} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={styles.dropName}>{getDisplayName()}</div>
+                            <div style={styles.dropEmail}>
+                              {user?.email ? user.email : "No email"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={styles.dropdownDivider} />
+
+                      {/* quick links */}
+                      <Link
+                        to="/profile"
+                        onClick={() => setMenuOpen(false)}
+                        style={styles.dropdownItem}
+                        role="menuitem"
+                      >
+                        View profile
+                      </Link>
+
+                      <Link
+                        to="/settings"
+                        onClick={() => setMenuOpen(false)}
+                        style={styles.dropdownItem}
+                        role="menuitem"
+                      >
+                        Settings
+                      </Link>
+
+                      <button
+                        onClick={handleLogout}
+                        style={{ ...styles.dropdownItem, border: "none", width: "100%" }}
+                        role="menuitem"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* MOBILE HAMBURGER */}
+          {isMobile && (
+            <div style={styles.right}>
               <button
-                onClick={handleLogout}
+                onClick={() => setOpen(!open)}
                 style={{
-                  ...styles.btnLogin,
-                  border: "1px solid rgba(255,80,80,0.35)",
-                  color: "#ffb3b3",
+                  ...styles.hamburgerBtn,
+                  ...(open ? styles.hamburgerBtnActive : {}),
                 }}
+                aria-expanded={open}
+                aria-label="Toggle menu"
               >
-                Logout
+                <span
+                  style={{
+                    ...styles.hamburgerBar,
+                    ...(open ? styles.bar1Active : {}),
+                  }}
+                />
+                <span
+                  style={{
+                    ...styles.hamburgerBar,
+                    ...(open ? styles.bar2Active : {}),
+                  }}
+                />
+                <span
+                  style={{
+                    ...styles.hamburgerBar,
+                    ...(open ? styles.bar3Active : {}),
+                  }}
+                />
               </button>
-            )}
-          </div>
-        )}
-
-        {/* MOBILE MENU BUTTON */}
-        {isMobile && (
-          <div style={styles.right}>
-            <button
-              onClick={() => setOpen(!open)}
-              style={{
-                ...styles.hamburgerBtn,
-                ...(open ? styles.hamburgerBtnActive : {}),
-              }}
-            >
-              <span
-                style={{
-                  ...styles.hamburgerBar,
-                  ...(open ? styles.bar1Active : {}),
-                }}
-              />
-              <span
-                style={{
-                  ...styles.hamburgerBar,
-                  ...(open ? styles.bar2Active : {}),
-                }}
-              />
-              <span
-                style={{
-                  ...styles.hamburgerBar,
-                  ...(open ? styles.bar3Active : {}),
-                }}
-              />
-            </button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* MOBILE MENU */}
@@ -146,6 +325,35 @@ export default function Navbar() {
           }}
         >
           <div style={styles.mobileInner}>
+            {/* show avatar + name on top of mobile menu */}
+            {user && (
+              <div style={styles.mobileProfileRow}>
+                <div style={{ position: "relative" }}>
+                  <Avatar size={44} />
+                  <span
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      right: -2,
+                      bottom: -2,
+                      width: 10,
+                      height: 10,
+                      borderRadius: 10,
+                      border: "2px solid rgba(7,10,16,0.9)",
+                      background: isOnline ? "#60a5fa" : "#334155",
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginLeft: 12 }}>
+                  <div style={{ fontSize: 14, color: "#cfe8ff", fontWeight: 700 }}>
+                    {getDisplayName()}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#9fb7d9" }}>Welcome back</div>
+                </div>
+              </div>
+            )}
+
             {navLinks.map((l) => (
               <Link
                 key={l.to}
@@ -153,9 +361,7 @@ export default function Navbar() {
                 onClick={() => setOpen(false)}
                 style={{
                   ...styles.mobileLink,
-                  ...(location.pathname === l.to
-                    ? styles.mobileLinkActive
-                    : {}),
+                  ...(location.pathname === l.to ? styles.mobileLinkActive : {}),
                 }}
               >
                 {l.label}
@@ -164,39 +370,34 @@ export default function Navbar() {
 
             {!user && (
               <>
-                <Link
-                  to="/login"
-                  onClick={() => setOpen(false)}
-                  style={styles.mobileLink}
-                >
+                <Link to="/login" onClick={() => setOpen(false)} style={styles.mobileLink}>
                   Login
                 </Link>
 
-                <Link
-                  to="/register"
-                  onClick={() => setOpen(false)}
-                  style={styles.mobileLink}
-                >
+                <Link to="/register" onClick={() => setOpen(false)} style={styles.mobileLink}>
                   Register
                 </Link>
               </>
             )}
 
             {user && (
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  handleLogout();
-                }}
-                style={{
-                  ...styles.mobileLink,
-                  background: "transparent",
-                  textAlign: "left",
-                  border: "none",
-                }}
-              >
-                Logout
-              </button>
+              <>
+                <Link to="/profile" onClick={() => setOpen(false)} style={styles.mobileLink}>
+                  Profile
+                </Link>
+                <Link to="/settings" onClick={() => setOpen(false)} style={styles.mobileLink}>
+                  Settings
+                </Link>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    handleLogout();
+                  }}
+                  style={{ ...styles.mobileLink, border: "none", textAlign: "left", background: "transparent" }}
+                >
+                  Logout
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -205,11 +406,7 @@ export default function Navbar() {
   );
 }
 
-
-
-//
-// -------- STYLES (unchanged — your original premium UI) --------
-//
+// ---------- styles
 const styles = {
   header: {
     position: "sticky",
@@ -277,7 +474,7 @@ const styles = {
     boxShadow: "0 6px 18px rgba(59,130,246,0.12)",
   },
 
-  // ---------- PREMIUM BUTTONS ----------
+  // ---------- buttons ----------
   btnLogin: {
     padding: "8px 18px",
     borderRadius: 10,
@@ -289,10 +486,6 @@ const styles = {
     fontSize: 14,
     boxShadow: "0 0 18px rgba(59,130,246,0.15)",
     transition: "all 200ms ease",
-  },
-  btnLoginHover: {
-    background: "rgba(255,255,255,0.12)",
-    boxShadow: "0 0 22px rgba(59,130,246,0.28)",
   },
 
   btnRegister: {
@@ -307,9 +500,94 @@ const styles = {
     boxShadow: "0 0 20px rgba(99,102,241,0.45)",
     transition: "all 200ms ease",
   },
-  btnRegisterHover: {
-    transform: "scale(1.04)",
-    boxShadow: "0 0 28px rgba(99,102,241,0.65)",
+
+  // ---------- USER (desktop inline) ----------
+  userBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "6px 12px",
+    borderRadius: 12,
+    background: "rgba(255,255,255,0.03)",
+    backdropFilter: "blur(6px)",
+    border: "1px solid rgba(255,255,255,0.04)",
+    boxShadow: "0 4px 18px rgba(0,0,0,0.18)",
+  },
+
+  avatarButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    borderRadius: 999,
+  },
+
+  userNameText: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#e6f0ff",
+    whiteSpace: "nowrap",
+    opacity: 0.98,
+  },
+
+  // ---------- dropdown ----------
+  dropdown: {
+    position: "absolute",
+    right: 0,
+    marginTop: 8,
+    minWidth: 220,
+    background: "#071224",
+    borderRadius: 12,
+    padding: 10,
+    boxShadow: "0 12px 40px rgba(2,6,23,0.6)",
+    border: "1px solid rgba(255,255,255,0.04)",
+    transition: "all 180ms cubic-bezier(.2,.9,.2,1)",
+    zIndex: 120,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    transformOrigin: "top right",
+  },
+
+  dropdownHeader: {
+    padding: 6,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  dropName: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: "#e6f0ff",
+  },
+
+  dropEmail: {
+    fontSize: 13,
+    color: "#9fb7d9",
+    marginTop: 2,
+  },
+
+  dropdownDivider: {
+    height: 1,
+    background: "linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))",
+    borderRadius: 2,
+    margin: "6px 0",
+  },
+
+  dropdownItem: {
+    padding: "8px 10px",
+    borderRadius: 8,
+    textDecoration: "none",
+    color: "#cfe8ff",
+    background: "transparent",
+    textAlign: "left",
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: 14,
   },
 
   // ---------- HAMBURGER ----------
@@ -361,6 +639,14 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 10,
+  },
+  mobileProfileRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 6,
+    borderBottom: "1px solid rgba(255,255,255,0.02)",
+    marginBottom: 10,
   },
   mobileLink: {
     display: "inline-block",
