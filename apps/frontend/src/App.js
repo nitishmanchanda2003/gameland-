@@ -1,41 +1,59 @@
 // src/App.js
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 
 // Components
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
-// Pages
+// User Pages
 import Home from "./pages/Home";
 import Categories from "./pages/Categories";
 import GameDetail from "./pages/GameDetail";
-import Login from "./pages/Login";        // ⭐ NEW
-import Register from "./pages/Register";  // ⭐ NEW
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+
+// Admin Pages
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import AddGame from "./pages/AddGame";
+import ManageGames from "./pages/ManageGames";
+import EditGame from "./pages/EditGame";
 
 function App() {
+  const location = useLocation();
+
+  // hide navbar/footer on admin
+  const isAdminRoute = location.pathname.startsWith("/admin");
+
   return (
     <div style={styles.appWrapper}>
-      <Navbar />
+
+      {!isAdminRoute && <Navbar />}
 
       <main style={styles.container}>
         <Routes>
-          {/* HOME */}
+
+          {/* PUBLIC ROUTES */}
           <Route path="/" element={<Home />} />
-
-          {/* CATEGORIES */}
           <Route path="/categories" element={<Categories />} />
-
-          {/* GAME DETAILS */}
           <Route path="/game/:gameId" element={<GameDetail />} />
 
-          {/* AUTH PAGES */}
-          <Route path="/login" element={<Login />} />         {/* ⭐ */}
-          <Route path="/register" element={<Register />} />   {/* ⭐ */}
+          {/* AUTH */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* ADMIN */}
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/add-game" element={<AddGame />} />
+          <Route path="/admin/games" element={<ManageGames />} />
+          <Route path="/admin/games/:id/edit" element={<EditGame />} />
+
         </Routes>
       </main>
 
-      <Footer />
+      {!isAdminRoute && <Footer />}
     </div>
   );
 }
@@ -46,16 +64,11 @@ const styles = {
     minHeight: "100vh",
     width: "100vw",
     overflowX: "hidden",
-    boxSizing: "border-box",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    color: "#fff",
     display: "flex",
     flexDirection: "column",
   },
   container: {
     padding: "20px",
-    width: "100%",
-    boxSizing: "border-box",
     flex: 1,
   },
 };

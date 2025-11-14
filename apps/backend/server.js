@@ -4,13 +4,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 
-// Routes
-import authRoutes from "./routes/authRoutes.js";
-
-// Middleware
-import { protect, adminOnly } from "./middleware/authMiddleware.js";
-
-// Load environment variables
 dotenv.config();
 
 // Connect MongoDB
@@ -24,21 +17,38 @@ const PORT = process.env.PORT || 5000;
  **************************************/
 app.use(
   cors({
-    origin: "*", // development ke liye OK
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
-app.use(express.json()); // parse JSON
-app.use(express.urlencoded({ extended: true })); // parse form data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ⭐ Serve uploads folder (thumbnails + zip uploads)
+app.use("/uploads", express.static("uploads"));
+
+// ⭐ Serve extracted game folders
+app.use("/games", express.static("public/games"));
 
 /**************************************
- *  ROUTES
+ *  ROUTES IMPORT
+ **************************************/
+import authRoutes from "./routes/authRoutes.js";
+import gameRoutes from "./routes/gameRoutes.js";
+
+/**************************************
+ *  ROUTES USE
  **************************************/
 app.use("/api/auth", authRoutes);
+app.use("/api/games", gameRoutes);
 
-// Protected Route Example — Token Required
+/**************************************
+ *  PROTECTED TEST ROUTES
+ **************************************/
+import { protect, adminOnly } from "./middleware/authMiddleware.js";
+
 app.get("/api/user/me", protect, (req, res) => {
   res.json({
     message: "Protected route accessed",
@@ -46,12 +56,13 @@ app.get("/api/user/me", protect, (req, res) => {
   });
 });
 
-// Admin Only Example — (optional)
 app.get("/api/admin/check", protect, adminOnly, (req, res) => {
   res.json({ message: "You are an Admin ✔" });
 });
 
-// Test route
+/**************************************
+ *  BASIC TEST ROUTE
+ **************************************/
 app.get("/test", (req, res) => {
   res.json({ message: "Backend connected successfully!" });
 });
