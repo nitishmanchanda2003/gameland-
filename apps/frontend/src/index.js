@@ -5,13 +5,13 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 
-// ⭐ AUTH CONTEXT
+// Auth Context
 import { AuthProvider } from "./context/AuthContext";
 
-// ⭐ GOOGLE AUTH PROVIDER
+// Google Provider
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
-// ⭐ Load Client ID from .env
+// Load Google Client ID
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
