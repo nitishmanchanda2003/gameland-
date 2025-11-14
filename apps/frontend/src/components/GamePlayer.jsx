@@ -1,8 +1,9 @@
 // src/components/GamePlayer.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-export default function GamePlayer({ gameId }) {
-  const src = `/games/${gameId}/index.html`;
+export default function GamePlayer({ gameUrl }) {
+  // ⭐ Always load from backend static folder
+  const src = `http://localhost:5000${gameUrl}`;
 
   const iframeRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -11,63 +12,70 @@ export default function GamePlayer({ gameId }) {
 
   const timeoutRef = useRef(null);
 
+  // -----------------------------------------
+  // LOAD TIMEOUT HANDLER
+  // -----------------------------------------
   useEffect(() => {
     setLoading(true);
     setFailed(false);
 
     timeoutRef.current = setTimeout(() => {
-      if (loading) {
-        setFailed(true);
-        setLoading(false);
-      }
-    }, 10000);
+      setFailed(true);
+      setLoading(false);
+    }, 15000); // Unity needs more time (15 sec)
 
     return () => clearTimeout(timeoutRef.current);
-    // eslint-disable-next-line
-  }, [gameId]);
+  }, [gameUrl]);
 
+  // -----------------------------------------
+  // IFRAME LOAD SUCCESS
+  // -----------------------------------------
   const handleLoad = () => {
     clearTimeout(timeoutRef.current);
     setLoading(false);
     setFailed(false);
   };
 
+  // -----------------------------------------
+  // FULLSCREEN
+  // -----------------------------------------
   const handleFullscreen = () => {
     const iframe = iframeRef.current;
 
-    if (iframe?.requestFullscreen) iframe.requestFullscreen();
-    else if (iframe?.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
-    else if (iframe?.mozRequestFullScreen) iframe.mozRequestFullScreen();
-    else if (iframe?.msRequestFullscreen) iframe.msRequestFullscreen();
+    if (!iframe) return;
+
+    if (iframe.requestFullscreen) iframe.requestFullscreen();
+    else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
+    else if (iframe.mozRequestFullScreen) iframe.mozRequestFullScreen();
+    else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
   };
 
+  // -----------------------------------------
+  // RELOAD
+  // -----------------------------------------
   const handleReload = () => {
     setLoading(true);
     setFailed(false);
-    iframeRef.current.src = iframeRef.current.src;
+    iframeRef.current.src = iframeRef.current.src; // force reload
   };
 
+  // -----------------------------------------
+  // UI
+  // -----------------------------------------
   return (
     <div
       style={{
         ...styles.container,
         height: expanded ? "85vh" : "70vh",
-        transition: "0.25s ease",
       }}
     >
-      {/* TOP CONTROL BAR */}
+      {/* TOP BAR */}
       <div style={styles.topBar}>
         <span style={styles.gameTitle}>🎮 Playing Game</span>
 
         <div style={styles.controlsRight}>
-          <button style={styles.btn} onClick={handleReload}>
-            🔄 Reload
-          </button>
-
-          <button style={styles.btn} onClick={handleFullscreen}>
-            ⛶ Fullscreen
-          </button>
-
+          <button style={styles.btn} onClick={handleReload}>🔄 Reload</button>
+          <button style={styles.btn} onClick={handleFullscreen}>⛶ Fullscreen</button>
           <button style={styles.btn} onClick={() => setExpanded(!expanded)}>
             {expanded ? "🔽 Shrink" : "🔼 Expand"}
           </button>
@@ -85,26 +93,30 @@ export default function GamePlayer({ gameId }) {
 
         {failed && (
           <div style={styles.errorOverlay}>
-            <h3 style={{ color: "#fff", marginBottom: 4 }}>
-              Failed to load game
-            </h3>
-            <p style={{ color: "#94a3b8" }}>Please reload or try again later</p>
+            <h3 style={{ color: "#fff", marginBottom: 4 }}>Failed to load game</h3>
+            <p style={{ color: "#94a3b8" }}>Check if /public/games folder contains index.html</p>
           </div>
         )}
 
         {!failed && (
           <iframe
             ref={iframeRef}
-            title={`game-${gameId}`}
+            title="game-player"
             src={src}
             onLoad={handleLoad}
             style={{
               ...styles.iframe,
               opacity: loading ? 0 : 1,
-              transition: "opacity 0.45s ease",
             }}
-            sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups"
-            allow="fullscreen"
+            allow="fullscreen; autoplay; encrypted-media"
+            sandbox="
+              allow-scripts
+              allow-same-origin
+              allow-pointer-lock
+              allow-orientation-lock
+              allow-popups
+              allow-downloads
+            "
           ></iframe>
         )}
       </div>
@@ -112,8 +124,7 @@ export default function GamePlayer({ gameId }) {
   );
 }
 
-
-/* ------------------ STYLES ------------------ */
+/* ------------------ STYLE ------------------ */
 
 const styles = {
   container: {
@@ -125,7 +136,6 @@ const styles = {
     boxShadow: "0 0 25px rgba(0,0,0,0.35)",
   },
 
-  /* TOP BAR */
   topBar: {
     padding: "10px 16px",
     background: "rgba(255,255,255,0.06)",
@@ -140,7 +150,6 @@ const styles = {
     color: "#fff",
     fontSize: 15,
     fontWeight: 600,
-    letterSpacing: "0.5px",
   },
 
   controlsRight: {
@@ -156,10 +165,8 @@ const styles = {
     borderRadius: 6,
     cursor: "pointer",
     fontSize: 13,
-    transition: "0.25s ease",
   },
 
-  /* GAME AREA */
   playerArea: {
     position: "relative",
     width: "100%",
@@ -172,14 +179,14 @@ const styles = {
     width: "100%",
     height: "100%",
     border: "none",
+    transition: "opacity 0.45s ease",
   },
 
-  /* LOADING OVERLAY */
   loadingOverlay: {
     position: "absolute",
     inset: 0,
-    backdropFilter: "blur(6px)",
     background: "rgba(0,0,0,0.55)",
+    backdropFilter: "blur(6px)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -194,17 +201,14 @@ const styles = {
     border: "6px solid rgba(255,255,255,0.15)",
     borderTopColor: "#38bdf8",
     animation: "spin 1s linear infinite",
-    boxShadow: "0 0 15px #38bdf8, 0 0 25px rgba(56,189,248,0.3)",
   },
 
   loadingText: {
     marginTop: 12,
     color: "#cbd5e1",
     fontSize: 14,
-    letterSpacing: "0.3px",
   },
 
-  /* ERROR SCREEN */
   errorOverlay: {
     position: "absolute",
     inset: 0,

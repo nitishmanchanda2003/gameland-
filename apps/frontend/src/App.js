@@ -28,7 +28,6 @@ function App() {
 
   return (
     <div style={styles.appWrapper}>
-
       {!isAdminRoute && <Navbar />}
 
       <main style={styles.container}>
@@ -37,7 +36,9 @@ function App() {
           {/* PUBLIC ROUTES */}
           <Route path="/" element={<Home />} />
           <Route path="/categories" element={<Categories />} />
-          <Route path="/game/:gameId" element={<GameDetail />} />
+
+          {/* ⭐ SLUG BASED ROUTING */}
+          <Route path="/game/:slug" element={<GameDetail />} />
 
           {/* AUTH */}
           <Route path="/login" element={<Login />} />

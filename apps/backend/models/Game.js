@@ -4,22 +4,23 @@ import slugify from "slugify";
 
 const gameSchema = new mongoose.Schema(
   {
-    // Game title – e.g. "Space Runner"
+    // Game title
     title: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // Auto-generated slug from title (URL friendly)
+    // URL-friendly slug
     slug: {
       type: String,
       unique: true,
       lowercase: true,
       trim: true,
+      required: true,
     },
 
-    // Game Category / Genre – e.g. "Action", "Racing"
+    // Genre / Category
     genre: {
       type: String,
       required: true,
@@ -27,35 +28,25 @@ const gameSchema = new mongoose.Schema(
       index: true,
     },
 
-    // GameCard & GameDetail thumbnail
+    // Thumbnail image path
     thumbnail: {
       type: String,
       required: true,
-      trim: true,
     },
 
-    // Optional banner image for GameDetail top header
-    banner: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    // Playable URL (iframe src)
-    gameUrl: {
+    // Playable game URL -> /games/<slug>/index.html
+    playUrl: {
       type: String,
       required: true,
-      trim: true,
     },
 
-    // Description for Game Detail page
+    // Short description
     description: {
       type: String,
       default: "",
-      trim: true,
     },
 
-    // Rating 0–5
+    // Rating
     rating: {
       type: Number,
       default: 4.0,
@@ -63,7 +54,7 @@ const gameSchema = new mongoose.Schema(
       max: 5,
     },
 
-    // Homepage flags (Trending / New)
+    // Flags
     isFeatured: {
       type: Boolean,
       default: false,
@@ -74,13 +65,13 @@ const gameSchema = new mongoose.Schema(
       default: false,
     },
 
-    // Analytics – How many times played
+    // Analytics
     playCount: {
       type: Number,
       default: 0,
     },
 
-    // Which admin uploaded the game
+    // Which admin uploaded it
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -91,19 +82,19 @@ const gameSchema = new mongoose.Schema(
   }
 );
 
-/************************************
- * AUTO-GENERATE SLUG BEFORE SAVE
- ************************************/
-gameSchema.pre("save", function (next) {
+/******************************************
+ * AUTO SLUG CREATE IF MISSING
+ ******************************************/
+gameSchema.pre("validate", function (next) {
   if (!this.slug) {
-    this.slug = slugify(this.title, { lower: true });
+    this.slug = slugify(this.title, { lower: true, strict: true });
   }
   next();
 });
 
-/************************************
- * UNIQUE INDEX FOR FAST SEARCH
- ************************************/
+/******************************************
+ * Indexes for faster search
+ ******************************************/
 gameSchema.index({ title: 1 });
 gameSchema.index({ slug: 1 });
 gameSchema.index({ genre: 1 });

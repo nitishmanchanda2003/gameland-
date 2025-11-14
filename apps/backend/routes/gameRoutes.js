@@ -9,28 +9,19 @@ import {
 } from "../controllers/gameController.js";
 
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
-import { uploadFiles } from "../middleware/uploadMiddleware.js"; // ⭐ 1 middleware for both thumbnail + zip
+import { uploadFiles } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
-/**************************************
- * PUBLIC ROUTES
- **************************************/
+// PUBLIC ROUTES
 router.get("/", getAllGames);
 router.get("/:id", getGameById);
 
-/**************************************
- * ADMIN ROUTES (FILE UPLOAD + AUTH)
- **************************************/
-router.post(
-  "/",
-  protect,
-  adminOnly,
-  uploadFiles,  // ⭐ required: handles thumbnail + zip
-  createGame
-);
+// ADMIN ROUTES
+router.post("/", protect, adminOnly, uploadFiles, createGame);
 
-router.put("/:id", protect, adminOnly, updateGame);
+router.put("/:id", protect, adminOnly, uploadFiles, updateGame);
+
 router.delete("/:id", protect, adminOnly, deleteGame);
 
 export default router;

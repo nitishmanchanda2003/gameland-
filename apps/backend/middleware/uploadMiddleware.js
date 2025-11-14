@@ -1,45 +1,60 @@
+// backend/middleware/uploadMiddleware.js
 import multer from "multer";
-import path from "path";
+import fs from "fs";
 
-// Thumbnail Storage
-const thumbnailStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/thumbnails/"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + "-" + file.originalname),
+/************************************
+ * Ensure upload folders exist
+ ************************************/
+const ensureFolder = (folder) => {
+  if (!fs.existsSync(folder)) {
+    fs.mkdirSync(folder, { recursive: true });
+  }
+};
+
+ensureFolder("uploads/thumbnails");
+ensureFolder("uploads/zips");
+
+/************************************
+ * STORAGE ENGINE
+ ************************************/
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.fieldname === "thumbnail") {
+      cb(null, "uploads/thumbnails/");
+    } else if (file.fieldname === "gameZip") {
+      cb(null, "uploads/zips/");
+    }
+  },
+
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
 });
 
-// ZIP Storage
-const zipStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/zips/"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + "-" + file.originalname),
-});
-
-// File Filter
+/************************************
+ * FILE FILTER
+ ************************************/
 const fileFilter = (req, file, cb) => {
   if (file.fieldname === "thumbnail") {
-    if (!file.mimetype.startsWith("image/"))
-      return cb(new Error("Only image files allowed"), false);
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Thumbnail must be an image"), false);
+    }
   }
 
   if (file.fieldname === "gameZip") {
-    if (
-      !file.mimetype.includes("zip") &&
-      !file.originalname.endsWith(".zip")
-    ) {
-      return cb(new Error("Only ZIP file allowed"), false);
+    if (!file.originalname.endsWith(".zip")) {
+      return cb(new Error("Game ZIP must be a .zip file"), false);
     }
   }
 
   cb(null, true);
 };
 
-// Multer Instance (multi upload)
+/************************************
+ * FINAL MULTER UPLOADER
+ ************************************/
 export const uploadFiles = multer({
-  storage: (req, file, cb) => {
-    if (file.fieldname === "thumbnail") return cb(null, thumbnailStorage);
-    if (file.fieldname === "gameZip") return cb(null, zipStorage);
-  },
+  storage,
   fileFilter,
 }).fields([
   { name: "thumbnail", maxCount: 1 },

@@ -6,11 +6,15 @@ import RatingStars from "./RatingStars";
 export default function GameCard({ game, onPlay }) {
   const navigate = useNavigate();
 
+  // ⭐ Backend thumbnail fix
+  const imageSrc = game.thumbnail?.startsWith("/uploads")
+    ? `http://localhost:5000${game.thumbnail}`
+    : game.thumbnail || game.image || "/fallback.png";
+
   return (
     <div
       style={styles.card}
-      onClick={() => navigate(`/game/${game.id}`)}   // ⭐ Card click → Game Detail Page
-
+      onClick={() => navigate(`/game/${game.slug}`)} // ⭐ navigate by slug
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "scale(1.05)";
         e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.5)";
@@ -23,7 +27,7 @@ export default function GameCard({ game, onPlay }) {
         e.currentTarget.style.background = "#1e293b";
       }}
     >
-      <img src={game.image} alt={game.title} style={styles.image} />
+      <img src={imageSrc} alt={game.title} style={styles.image} />
 
       <div style={styles.info}>
         <h3 style={styles.title}>{game.title}</h3>
@@ -34,8 +38,8 @@ export default function GameCard({ game, onPlay }) {
         <button
           style={styles.playButton}
           onClick={(e) => {
-            e.stopPropagation();  // ⭐ Stop card click event
-            onPlay();             // ⭐ Open modal
+            e.stopPropagation();   // stop card click
+            onPlay(game);          // ⭐ open modal with game object
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "#3b82f6";
@@ -60,15 +64,13 @@ const styles = {
     overflow: "hidden",
     width: 220,
     boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-    transition:
-      "transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease",
+    transition: "transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease",
     cursor: "pointer",
   },
   image: {
     width: "100%",
     height: 140,
     objectFit: "cover",
-    transition: "filter 0.3s",
   },
   info: {
     padding: "12px",

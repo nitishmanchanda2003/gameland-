@@ -3,31 +3,34 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function GameModal({ game, onClose }) {
-  // Hooks always at top
   const navigate = useNavigate();
 
   if (!game) return null;
 
+  // ⭐ FIX: Correct backend thumbnail URL
+  const imageSrc = game.thumbnail?.startsWith("/uploads")
+    ? `http://localhost:5000${game.thumbnail}`
+    : game.thumbnail || game.image;
+
+  // ⭐ FIX: Slug based navigation
   const handlePlayNow = () => {
-    onClose(); // close modal first
+    onClose(); 
 
-    // 🔥 AUTO-PLAY ENABLED
-    navigate(`/game/${game.id}?autoPlay=true`);
+    navigate(`/game/${game.slug}?autoPlay=true`);
 
-    // Smooth scroll reset
     setTimeout(() => window.scrollTo(0, 0), 50);
   };
 
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        
+
         {/* Close */}
         <button style={styles.closeBtn} onClick={onClose}>✕</button>
 
-        {/* Image */}
+        {/* Thumbnail */}
         <div style={styles.imageWrapper}>
-          <img src={game.image} alt={game.title} style={styles.image} />
+          <img src={imageSrc} alt={game.title} style={styles.image} />
         </div>
 
         {/* Content */}
