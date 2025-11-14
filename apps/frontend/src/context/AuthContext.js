@@ -1,23 +1,106 @@
+// // src/context/AuthContext.js
+// import React, {
+//   createContext,
+//   useContext,
+//   useEffect,
+//   useState,
+// } from "react";
+// import axios from "axios";
+
+// const AuthContext = createContext();
+
+// // ⭐ Custom Hook
+// export function useAuth() {
+//   return useContext(AuthContext);
+// }
+
+// export function AuthProvider({ children }) {
+//   // -----------------------------
+//   //  INITIAL LOAD FROM LOCALSTORAGE
+//   // -----------------------------
+//   const [user, setUser] = useState(() => {
+//     try {
+//       const u = localStorage.getItem("user");
+//       return u ? JSON.parse(u) : null;
+//     } catch {
+//       return null;
+//     }
+//   });
+
+//   const [token, setToken] = useState(() => {
+//     try {
+//       return localStorage.getItem("token") || null;
+//     } catch {
+//       return null;
+//     }
+//   });
+
+//   // -----------------------------
+//   //  SET AXIOS AUTH HEADER WHEN TOKEN CHANGES
+//   // -----------------------------
+//   useEffect(() => {
+//     if (token) {
+//       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+//     } else {
+//       delete axios.defaults.headers.common["Authorization"];
+//     }
+//   }, [token]);
+
+//   // -----------------------------
+//   //  LOGIN (Save to state + localStorage)
+//   // -----------------------------
+//   const login = (userData, newToken) => {
+//     try {
+//       localStorage.setItem("user", JSON.stringify(userData));
+//       localStorage.setItem("token", newToken);
+//     } catch {}
+
+//     setUser(userData);
+//     setToken(newToken);
+//   };
+
+//   // -----------------------------
+//   //  LOGOUT
+//   // -----------------------------
+//   const logout = () => {
+//     try {
+//       localStorage.removeItem("user");
+//       localStorage.removeItem("token");
+//     } catch {}
+
+//     setUser(null);
+//     setToken(null);
+//     delete axios.defaults.headers.common["Authorization"];
+//   };
+
+//   return (
+//     <AuthContext.Provider
+//       value={{
+//         user,
+//         token,
+//         login,
+//         logout,
+//         isAuthenticated: !!user && !!token,
+//       }}
+//     >
+//       {children}
+//     </AuthContext.Provider>
+//   );
+// }
+
 // src/context/AuthContext.js
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
 
 const AuthContext = createContext();
 
-// ⭐ Custom Hook
+// Custom hook
 export function useAuth() {
   return useContext(AuthContext);
 }
 
 export function AuthProvider({ children }) {
-  // -----------------------------
-  //  INITIAL LOAD FROM LOCALSTORAGE
-  // -----------------------------
+  // initial load from localStorage
   const [user, setUser] = useState(() => {
     try {
       const u = localStorage.getItem("user");
@@ -35,9 +118,7 @@ export function AuthProvider({ children }) {
     }
   });
 
-  // -----------------------------
-  //  SET AXIOS AUTH HEADER WHEN TOKEN CHANGES
-  // -----------------------------
+  // set axios Authorization header when token changes
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -46,9 +127,7 @@ export function AuthProvider({ children }) {
     }
   }, [token]);
 
-  // -----------------------------
-  //  LOGIN (Save to state + localStorage)
-  // -----------------------------
+  // login: save user + token
   const login = (userData, newToken) => {
     try {
       localStorage.setItem("user", JSON.stringify(userData));
@@ -57,11 +136,25 @@ export function AuthProvider({ children }) {
 
     setUser(userData);
     setToken(newToken);
+    // axios header will be set by the effect above
   };
 
-  // -----------------------------
-  //  LOGOUT
-  // -----------------------------
+  // updateUser: merge and persist updated user fields (e.g. avatar, name)
+  const updateUser = (updatedFieldsOrUser) => {
+    // allow passing full user object or partial fields
+    const newUser =
+      updatedFieldsOrUser && typeof updatedFieldsOrUser === "object" && !Array.isArray(updatedFieldsOrUser)
+        ? { ...(user || {}), ...updatedFieldsOrUser }
+        : updatedFieldsOrUser;
+
+    try {
+      localStorage.setItem("user", JSON.stringify(newUser));
+    } catch {}
+
+    setUser(newUser);
+  };
+
+  // logout
   const logout = () => {
     try {
       localStorage.removeItem("user");
@@ -80,6 +173,7 @@ export function AuthProvider({ children }) {
         token,
         login,
         logout,
+        updateUser, // new helper
         isAuthenticated: !!user && !!token,
       }}
     >
@@ -87,3 +181,4 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
