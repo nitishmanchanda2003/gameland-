@@ -8,7 +8,7 @@ import {
   updateGame,
   deleteGame,
   increasePlayCount,
-  rateGame
+  rateGame,
 } from "../controllers/gameController.js";
 
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
@@ -20,32 +20,36 @@ const router = express.Router();
  * ⭐ PUBLIC ROUTES
  ******************************************/
 
-// All games
+// Fetch all games
 router.get("/", getAllGames);
 
-// One game by ID
+// Fetch by ID
 router.get("/id/:id", getGameById);
 
-// One game by Slug
+// Fetch by Slug
 router.get("/slug/:slug", getGameBySlug);
 
 /******************************************
- * ⭐ GAME INTERACTIONS
+ * ⭐ GAME INTERACTIONS (PUBLIC + AUTH)
  ******************************************/
 
-// Play Count (+ Anti-Spam)
+// Play count (no login required)
 router.post("/:id/play", increasePlayCount);
 
-// Rating (+ Anti-Spam)
-router.post("/:id/rate", rateGame);
+// Rating (login required)
+router.post("/:id/rate", protect, rateGame);
 
 /******************************************
- * ⭐ ADMIN
+ * ⭐ ADMIN ROUTES
  ******************************************/
+
+// Create new game
 router.post("/", protect, adminOnly, uploadFiles, createGame);
 
+// Update game
 router.put("/:id", protect, adminOnly, uploadFiles, updateGame);
 
+// Delete game
 router.delete("/:id", protect, adminOnly, deleteGame);
 
 export default router;

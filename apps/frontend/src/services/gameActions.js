@@ -1,17 +1,18 @@
-// src/services/gameActions.js
 import axios from "axios";
 
 const BASE_URL = "http://localhost:5000/api";
 
+// ⭐ Ensure axios sends cookies / token automatically
+axios.defaults.withCredentials = true;
+
 /*************************************************
- * ⭐ SAFE PLAY COUNTER (Anti-Spam)
- * Frontend cooldown + Backend cooldown both active
+ * ⭐ SAFE PLAY COUNTER (Frontend Cooldown)
  *************************************************/
 export async function increasePlay(gameId) {
   const lastPlay = localStorage.getItem(`play_${gameId}`);
   const now = Date.now();
 
-  // 👉 Prevent frontend spam (5 min)
+  // 5 min cooldown
   if (lastPlay && now - lastPlay < 5 * 60 * 1000) {
     return { ignored: true };
   }
@@ -19,9 +20,7 @@ export async function increasePlay(gameId) {
   try {
     const res = await axios.post(`${BASE_URL}/games/${gameId}/play`);
 
-    // Save frontend cooldown
     localStorage.setItem(`play_${gameId}`, now);
-
     return res.data;
   } catch (err) {
     console.log("Play count error:", err);
@@ -30,28 +29,35 @@ export async function increasePlay(gameId) {
 }
 
 /*************************************************
- * ⭐ EDITABLE RATING SYSTEM (Frontend Updated)
- * - User can change rating (stored in localStorage)
- * - Backend overwrites old IP rating & recalculates
+ * ⭐ USER-BASED RATING SYSTEM (Secure + Token Support)
  *************************************************/
 export async function rateGame(gameId, stars) {
   try {
-    const res = await axios.post(`${BASE_URL}/games/${gameId}/rate`, {
-      stars,
-    });
-
-    // ⭐ Store user rating for UI memory
-    localStorage.setItem(`rated_${gameId}`, stars);
+    const res = await axios.post(
+      `${BASE_URL}/games/${gameId}/rate`,
+      { stars },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true, // send token/cookies
+      }
+    );
 
     return {
       success: true,
-      rating: res.data.rating, // updated avg rating
+      rating: res.data.rating,         // NEW averageRating
+      totalRatings: res.data.totalRatings,
+      userRating: res.data.userRating, // actual user rating
     };
   } catch (err) {
     console.log("Rating error:", err);
 
-    // Backend returns { message: "..." }
     const msg = err?.response?.data?.message || "Rating failed";
+
+    if (msg === "Login required") {
+      return { success: false, loginRequired: true };
+    }
 
     return { success: false, message: msg };
   }

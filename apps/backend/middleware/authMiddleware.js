@@ -9,7 +9,7 @@ export const protect = async (req, res, next) => {
   try {
     let token;
 
-    // Get token from Authorization header
+    // Accept Bearer Token
     if (
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer")
@@ -17,39 +17,38 @@ export const protect = async (req, res, next) => {
       token = req.headers.authorization.split(" ")[1];
     }
 
-    // No token found
+    // No token provided
     if (!token) {
       return res.status(401).json({
-        message: "Not authorized — Token missing",
+        message: "Login required",
       });
     }
 
-    // Decode token
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Fetch user from DB
+    // Find user
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
       return res.status(404).json({
-        message: "User does not exist (maybe deleted)",
+        message: "User not found",
       });
     }
 
-    // Attach user to request
+    // Attach user
     req.user = user;
 
     next();
-
   } catch (error) {
-    console.error("AUTH MIDDLEWARE ERROR:", error.message);
+    console.error("AUTH ERROR:", error.message);
 
+    // Token expired or invalid
     return res.status(401).json({
       message: "Invalid or expired token",
     });
   }
 };
-
 
 /********************************************************
  *  ADMIN-ONLY MIDDLEWARE
@@ -58,13 +57,13 @@ export const adminOnly = (req, res, next) => {
   try {
     if (!req.user) {
       return res.status(401).json({
-        message: "Not authorized — No user available",
+        message: "Login required",
       });
     }
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
-        message: "Access denied — Admins only",
+        message: "Admins only",
       });
     }
 
@@ -72,7 +71,7 @@ export const adminOnly = (req, res, next) => {
   } catch (err) {
     console.error("ADMIN CHECK ERROR:", err.message);
     return res.status(500).json({
-      message: "Internal server error — Admin check failed",
+      message: "Internal server error",
     });
   }
 };

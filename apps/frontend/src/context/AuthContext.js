@@ -100,7 +100,9 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
-  // initial load from localStorage
+  /*************************************************
+   * USER + TOKEN (stored in localStorage)
+   *************************************************/
   const [user, setUser] = useState(() => {
     try {
       const u = localStorage.getItem("user");
@@ -118,7 +120,46 @@ export function AuthProvider({ children }) {
     }
   });
 
-  // set axios Authorization header when token changes
+  /*************************************************
+   * ⭐ NEW → STORE USER FAVORITES IN CONTEXT
+   *************************************************/
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const f = localStorage.getItem("favorites");
+      return f ? JSON.parse(f) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // ⭐⭐⭐ NEW (MINIMAL REQUIRED CHANGE ONLY)
+  const [ratedGames, setRatedGames] = useState(() => {
+    try {
+      const r = localStorage.getItem("ratedGames");
+      return r ? JSON.parse(r) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ratedGames", JSON.stringify(ratedGames));
+    } catch {}
+  }, [ratedGames]);
+  // ⭐⭐⭐ END NEW PART
+
+
+  // save favorites to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("favorites", JSON.stringify(favorites));
+    } catch {}
+  }, [favorites]);
+
+  /*************************************************
+   * SET axios token automatically
+   *************************************************/
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -127,43 +168,80 @@ export function AuthProvider({ children }) {
     }
   }, [token]);
 
-  // login: save user + token
+  /*************************************************
+   * LOGIN — Save user + token + favorites
+   *************************************************/
   const login = (userData, newToken) => {
     try {
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("token", newToken);
+
+      // ⭐⭐⭐ required for rating system
+      localStorage.setItem("ratedGames", JSON.stringify(userData.ratedGames || []));
+
+      // IMPORTANT: clear & reset favorites for this user
+      localStorage.removeItem("favorites");
     } catch {}
 
     setUser(userData);
     setToken(newToken);
-    // axios header will be set by the effect above
+
+    // ⭐⭐⭐ required for rating system
+    setRatedGames(userData.ratedGames || []);
+
+    setFavorites([]); // reload from API later
   };
 
-  // updateUser: merge and persist updated user fields (e.g. avatar, name)
-  const updateUser = (updatedFieldsOrUser) => {
-    // allow passing full user object or partial fields
-    const newUser =
-      updatedFieldsOrUser && typeof updatedFieldsOrUser === "object" && !Array.isArray(updatedFieldsOrUser)
-        ? { ...(user || {}), ...updatedFieldsOrUser }
-        : updatedFieldsOrUser;
+  /*************************************************
+   * UPDATE USER (e.g. avatar)
+   *************************************************/
+  const updateUser = (newFields) => {
+    const merged = { ...(user || {}), ...newFields };
+    setUser(merged);
+
+    // ⭐⭐⭐ sync ratedGames
+    if (newFields.ratedGames) {
+      setRatedGames(newFields.ratedGames);
+      localStorage.setItem("ratedGames", JSON.stringify(newFields.ratedGames));
+    }
 
     try {
-      localStorage.setItem("user", JSON.stringify(newUser));
+      localStorage.setItem("user", JSON.stringify(merged));
     } catch {}
-
-    setUser(newUser);
   };
 
-  // logout
+  /*************************************************
+   * LOGOUT — Clear everything
+   *************************************************/
   const logout = () => {
     try {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
+      localStorage.removeItem("favorites");
+      localStorage.removeItem("ratedGames"); // ⭐ REQUIRED
     } catch {}
 
     setUser(null);
     setToken(null);
+    setFavorites([]);
+    setRatedGames([]); // ⭐ REQUIRED
     delete axios.defaults.headers.common["Authorization"];
+  };
+
+  /*************************************************
+   * ⭐ NEW → FAVORITES HANDLERS
+   *************************************************/
+  const setInitialFavorites = (favArray) => {
+    setFavorites(favArray || []);
+  };
+
+  const toggleFavoriteLocal = (gameId) => {
+    setFavorites((prev) => {
+      if (prev.includes(gameId))
+        return prev.filter((id) => id !== gameId);
+
+      return [...prev, gameId];
+    });
   };
 
   return (
@@ -171,9 +249,15 @@ export function AuthProvider({ children }) {
       value={{
         user,
         token,
+        favorites,              // ⭐ EXPOSE favorites array
+        setInitialFavorites,    // ⭐ when we fetch favorites from backend
+        toggleFavoriteLocal,    // ⭐ update UI instantly
+
+        ratedGames,             // ⭐ REQUIRED EXPORT
+
         login,
         logout,
-        updateUser, // new helper
+        updateUser,
         isAuthenticated: !!user && !!token,
       }}
     >
@@ -181,4 +265,3 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
-

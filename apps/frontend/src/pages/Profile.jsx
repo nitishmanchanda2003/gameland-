@@ -3,27 +3,16 @@ import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
-
-/**
- * Profile page
- * - Shows avatar (with robust fallback)
- * - Lets user pick a new image and upload it to /api/user/avatar
- * - Calls updateUser(updatedUser) from AuthContext so Navbar updates immediately
- *
- * NOTE: backend endpoint expected: POST /api/user/avatar
- * - Accepts multipart/form-data with field name "avatar"
- * - Returns updated user object (e.g. { user: { ... } } or directly the user)
- */
+import { useFavorites, fetchFavoritesAPI } from "../services/favoriteActions";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser, logout, isAuthenticated } = useAuth();
 
   const inputRef = useRef(null);
 
-  // preview will show (in order): local picked file preview -> user.picture -> user.avatar -> placeholder
   const initialPreview =
-    (typeof window !== "undefined" && sessionStorage.getItem("profile_preview")) ||
+    sessionStorage.getItem("profile_preview") ||
     user?.picture ||
     user?.avatar ||
     "https://i.ibb.co/YT1y9VJ/default-avatar.png";
@@ -34,121 +23,124 @@ export default function Profile() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-   const socialLinks = [
+  // ⭐ Favorites hook
+  const { favorites, toggleFavorite, refreshFavorites } = useFavorites();
+
+  // ⭐ Store full favorite game objects separately
+  const [favGames, setFavGames] = useState([]);
+  const [favLoading, setFavLoading] = useState(false);
+
+  const socialLinks = [
     { id: "instagram", label: "Instagram", href: "https://www.instagram.com/", icon: "📸" },
     { id: "twitter", label: "Twitter", href: "https://twitter.com/", icon: "🐦" },
     { id: "linkedin", label: "LinkedIn", href: "https://www.linkedin.com/", icon: "🔗" },
-   
   ];
 
-  // if user changes (e.g. login / logout), refresh preview
+  // Update preview when user updates
   useEffect(() => {
     setPreview(user?.picture || user?.avatar || "https://i.ibb.co/YT1y9VJ/default-avatar.png");
   }, [user]);
 
-  // Cleanup any created object URLs when component unmounts
+  // Cleanup Blob URLs
   useEffect(() => {
     return () => {
-      if (preview && preview.startsWith("blob:")) {
-        try {
-          URL.revokeObjectURL(preview);
-        } catch {}
+      if (preview?.startsWith("blob:")) {
+        URL.revokeObjectURL(preview);
       }
       sessionStorage.removeItem("profile_preview");
     };
   }, [preview]);
 
-  function triggerPick() {
-    setErr("");
-    setMsg("");
-    inputRef.current?.click();
-  }
+  // ⭐ Load favorite full objects
+  const loadFavoriteGames = async () => {
+    if (!isAuthenticated) {
+      setFavGames([]);
+      return;
+    }
 
-  function handleFilePick(e) {
+    setFavLoading(true);
+    try {
+      const games = await fetchFavoritesAPI(); // returns full objects
+      setFavGames(games);
+    } catch {
+      setFavGames([]);
+    } finally {
+      setFavLoading(false);
+    }
+  };
+
+  // Load on login + whenever favorites change
+  useEffect(() => {
+    loadFavoriteGames();
+  }, [favorites, isAuthenticated]);
+
+  const triggerPick = () => inputRef.current?.click();
+
+  const handleFilePick = (e) => {
     setErr("");
     setMsg("");
     const f = e.target.files?.[0];
     if (!f) return;
+
     if (!f.type.startsWith("image/")) {
-      setErr("Please select an image file.");
+      setErr("Please select a valid image file.");
       return;
     }
     if (f.size > 4 * 1024 * 1024) {
-      setErr("Max file size 4MB. Please pick a smaller file.");
+      setErr("Max file size allowed: 4MB");
       return;
     }
 
-    // create preview URL
     const url = URL.createObjectURL(f);
     setFile(f);
     setPreview(url);
+    sessionStorage.setItem("profile_preview", url);
+  };
 
-    // store temporarily so reload doesn't immediately lose preview during dev
-    try {
-      sessionStorage.setItem("profile_preview", url);
-    } catch {}
-
-    // clear previous messages
-    setMsg("");
-  }
-
-  async function handleUpload() {
-    setErr("");
-    setMsg("");
-
+  const handleUpload = async () => {
     if (!file) {
-      setErr("Please choose a photo first.");
+      setErr("Please select an image first.");
       return;
     }
 
+    setLoading(true);
     const fd = new FormData();
     fd.append("avatar", file);
 
     try {
-      setLoading(true);
-
-      // axios.defaults.headers should already include Authorization from AuthContext
       const res = await axios.post("/api/user/avatar", fd, {
         headers: { "Content-Type": "multipart/form-data" },
-        timeout: 30_000,
       });
 
-      // server might return { user: {...} } or {...}
       const updatedUser = res.data?.user || res.data;
-      if (!updatedUser) {
-        setErr("Upload succeeded but server did not return updated user.");
-        return;
-      }
-
-      // update context so Navbar + other parts refresh
-      if (typeof updateUser === "function") updateUser(updatedUser);
-
+      updateUser(updatedUser);
       setMsg("Profile updated successfully.");
       setFile(null);
-
-      // if preview was blob URL, keep it briefly then revoke
-      setTimeout(() => {
-        try {
-          if (preview && preview.startsWith("blob:")) {
-            URL.revokeObjectURL(preview);
-            sessionStorage.removeItem("profile_preview");
-          }
-        } catch {}
-      }, 1200);
     } catch (error) {
-      console.error("Avatar upload error:", error);
-      setErr(error.response?.data?.message || error.message || "Failed to upload avatar");
+      setErr(error.response?.data?.message || "Upload failed");
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  const handleToggleFav = async (gameId) => {
+    const res = await toggleFavorite(gameId);
+    if (res.error === "LOGIN_REQUIRED") {
+      alert("Please login first.");
+      return;
+    }
+    await refreshFavorites();
+    await loadFavoriteGames();
+  };
 
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
         <h1 style={styles.title}>Your Profile</h1>
+
+        {/* ---------------- GRID ---------------- */}
         <div style={styles.grid}>
-          {/* LEFT: avatar + controls */}
+          {/* LEFT Column */}
           <div style={styles.leftCol}>
             <div style={styles.avatarWrap}>
               <img
@@ -156,40 +148,25 @@ export default function Profile() {
                 alt="avatar"
                 style={styles.avatar}
                 onError={(e) => {
-                  e.currentTarget.onerror = null;
                   e.currentTarget.src = "https://i.ibb.co/YT1y9VJ/default-avatar.png";
                 }}
               />
-              <button
-                type="button"
-                onClick={triggerPick}
-                aria-label="Edit profile picture"
-                style={styles.editBtn}
-                title="Choose a new photo"
-              >
-                ✎
-              </button>
-              <input
-                ref={inputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleFilePick}
-              />
+              <button style={styles.editBtn} onClick={triggerPick}>✎</button>
+              <input type="file" ref={inputRef} accept="image/*" style={{ display: "none" }} onChange={handleFilePick} />
             </div>
 
-            <div style={{ marginTop: 12, display: "flex", gap: 75 }}>
+            <div style={{ marginTop: 12, display: "flex", gap: 20 }}>
               <button
                 onClick={handleUpload}
                 disabled={loading || !file}
                 style={{ ...styles.primaryBtn, opacity: !file ? 0.6 : 1 }}
               >
-                {loading ? "Uploading…" : file ? "Upload photo" : "Choose photo"}
+                {loading ? "Uploading…" : "Upload"}
               </button>
 
               <button
                 onClick={() => {
-                  logout?.();
+                  logout();
                   navigate("/login");
                 }}
                 style={styles.ghostBtn}
@@ -202,37 +179,30 @@ export default function Profile() {
             {err && <div style={styles.error}>{err}</div>}
           </div>
 
-          {/* CENTER: user info */}
+          {/* RIGHT Column (User Info) */}
           <div style={styles.rightCol}>
             <div style={styles.infoRow}>
               <div>
                 <div style={styles.infoLabel}>Name</div>
-                <div style={styles.infoValue}>{user?.name || "-"}</div>
+                <div style={styles.infoValue}>{user?.name}</div>
               </div>
             </div>
 
             <div style={styles.infoRow}>
               <div>
                 <div style={styles.infoLabel}>Email</div>
-                <div style={styles.infoValueSmall}>{user?.email || "-"}</div>
+                <div style={styles.infoValueSmall}>{user?.email}</div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT: social column — moved OUTSIDE rightCol so it stays to the right vertically */}
-          <div style={styles.socialCol} aria-hidden={false}>
+          {/* SOCIAL Column */}
+          <div style={styles.socialCol}>
             <div style={styles.socialTitle}>Social</div>
             <ul style={styles.socialList}>
               {socialLinks.map((s) => (
                 <li key={s.id} style={styles.socialItem}>
-                  <a
-                    href={s.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={s.label}
-                    style={styles.socialLink}
-                    aria-label={s.label}
-                  >
+                  <a href={s.href} target="_blank" rel="noreferrer" style={styles.socialLink}>
                     <span style={styles.socialIcon}>{s.icon}</span>
                     <span style={styles.socialLabel}>{s.label}</span>
                   </a>
@@ -242,67 +212,112 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* ---------------- FAVORITES SECTION (below grid) ---------------- */}
+        <div style={styles.favSectionWrapper}>
+          <h3 style={{ color: "#fff", marginBottom: 10 }}>❤️ Your Favorites</h3>
 
+          {favLoading ? (
+            <div style={{ color: "#9fb7d9" }}>Loading favorites...</div>
+          ) : favGames.length === 0 ? (
+            <div style={{ color: "#9fb7d9" }}>No favorites yet.</div>
+          ) : (
+            <div style={styles.favGrid}>
+              {favGames.map((g) => (
+                <div key={g._id} style={styles.favCard}>
+                  <div style={styles.favImgWrap}>
+                    <img
+                      src={
+                        g.thumbnail?.startsWith("/uploads")
+                          ? `http://localhost:5000${g.thumbnail}`
+                          : g.thumbnail
+                      }
+                      style={styles.favImg}
+                      alt={g.title}
+                    />
+                  </div>
+
+                  <div style={styles.favInfo}>
+                    <div style={styles.favTitle}>{g.title}</div>
+                    <div style={styles.favGenre}>{g.genre}</div>
+
+                    <div style={styles.favBtns}>
+                      <button
+                        onClick={() => navigate(`/game/${g.slug}`)}
+                        style={styles.viewBtn}
+                      >
+                        View
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleFav(g._id)}
+                        style={styles.removeBtn}
+                      >
+                        ♥
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-/* -------------------- STYLES -------------------- */
-/* Inline styles to match the rest of your project.
-   Adjust colors / sizes if needed. */
+/* ---------------- STYLES ---------------- */
 const styles = {
   wrapper: {
-    minHeight: "calc(100vh - 70px)",
+    minHeight: "100vh",
     background: "#0f172a",
+    padding: "30px 20px",
     display: "flex",
-    justifyContent: "space-around",
-    alignItems: "flex-start",
-    padding: "0px 20px 40px",
+    justifyContent: "center",
   },
 
   card: {
     width: "100%",
-    maxWidth: 790,
+    maxWidth: 900,
     background: "rgba(17,25,40,0.65)",
-    backdropFilter: "blur(12px)",
     borderRadius: 16,
     padding: 26,
-    border: "1px solid rgba(255,255,255,0.06)",
     color: "#e6f0ff",
+    border: "1px solid rgba(255,255,255,0.06)",
   },
 
-  title: { color: "#e6f0ff", fontSize: 22, fontWeight: 800, marginBottom: 18 },
+  title: {
+    fontSize: 24,
+    fontWeight: 800,
+    marginBottom: 20,
+  },
 
   grid: {
     display: "flex",
     gap: 24,
     alignItems: "flex-start",
+    marginBottom: 20,
   },
 
   leftCol: {
     width: 160,
-    minWidth: 160,
     display: "flex",
     flexDirection: "column",
-    alignItems: "flex-start",
   },
 
   rightCol: {
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 10,
   },
 
   avatarWrap: {
-    position: "relative",
     width: 110,
     height: 110,
     borderRadius: 14,
     overflow: "hidden",
-    border: "3px solid rgba(255,255,255,0.03)",
-    boxShadow: "0 10px 30px rgba(2,6,23,0.6)",
+    position: "relative",
     background: "#071224",
   },
 
@@ -310,85 +325,84 @@ const styles = {
     width: "100%",
     height: "100%",
     objectFit: "cover",
-    display: "block",
-    background: "#071224",
   },
 
   editBtn: {
     position: "absolute",
-    right: 8,
     bottom: 8,
-    borderRadius: 10,
+    right: 8,
+    background: "#3b82f6",
     border: "none",
-    padding: "7px 9px",
-    cursor: "pointer",
-    fontWeight: 700,
-    background: "linear-gradient(90deg,#3b82f6,#6366f1)",
     color: "#fff",
-    boxShadow: "0 8px 24px rgba(99,102,241,0.18)",
+    padding: "6px 8px",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontSize: 12,
   },
 
   primaryBtn: {
-    padding: "10px 27px",
+    padding: "10px 20px",
     borderRadius: 10,
-    border: "none",
-    fontWeight: 800,
-    cursor: "pointer",
-    background: "linear-gradient(90deg,#3b82f6,#6366f1)",
+    background: "#3b82f6",
     color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 700,
   },
 
   ghostBtn: {
     padding: "10px 14px",
     borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.2)",
     background: "transparent",
     color: "#cfe8ff",
     cursor: "pointer",
     fontWeight: 700,
   },
 
-  infoRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "stretch",
-    marginBottom: 6,
-  },
-
-  infoLabel: { color: "#9fb7d9", fontSize: 13, fontWeight: 700, marginBottom: 4 },
-  infoValue: { color: "#e6f0ff", fontWeight: 800, fontSize: 16 },
-  infoValueSmall: { color: "#e6f0ff", fontWeight: 700, fontSize: 14 },
-
   success: {
-    marginTop: 12,
-    background: "rgba(16,185,129,0.08)",
-    border: "1px solid rgba(16,185,129,0.18)",
+    marginTop: 10,
+    background: "rgba(16,185,129,0.15)",
     padding: 10,
     borderRadius: 8,
-    color: "#bbf7d0",
   },
 
   error: {
-    marginTop: 12,
-    background: "rgba(239,68,68,0.08)",
-    border: "1px solid rgba(239,68,68,0.18)",
+    marginTop: 10,
+    background: "rgba(239,68,68,0.15)",
     padding: 10,
     borderRadius: 8,
-    color: "#fecaca",
   },
 
-  hint: {
-    marginTop: 14,
+  infoRow: {
+    marginBottom: 10,
+  },
+
+  infoLabel: {
     color: "#9fb7d9",
     fontSize: 13,
+    fontWeight: 700,
   },
 
-  /* Social list styles (vertical) */
+  infoValue: {
+    fontSize: 18,
+    fontWeight: 800,
+  },
+
+  infoValueSmall: {
+    fontSize: 14,
+    fontWeight: 700,
+  },
+
+  socialCol: {
+    width: 140,
+  },
+
   socialTitle: {
     color: "#9fb7d9",
     fontSize: 13,
     fontWeight: 700,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   socialList: {
@@ -398,47 +412,102 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 10,
-    width: "100%",
-    alignItems: "center",
   },
 
-  socialItem: {
-    width: "100%",
-  },
+  socialItem: {},
 
   socialLink: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     textDecoration: "none",
     padding: "8px 10px",
     borderRadius: 10,
-    width: "100%",
-    justifyContent: "flex-start",
-    background: "linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005))",
-    border: "1px solid rgba(255,255,255,0.03)",
-    color: "#e6f0ff",
-    transition: "transform 120ms ease, box-shadow 120ms ease",
-    boxShadow: "inset 0 -6px 18px rgba(2,6,23,0.25)",
+    border: "1px solid rgba(255,255,255,0.05)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#fff",
   },
 
   socialIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
+    background: "#3b82f6",
+    color: "#fff",
+    padding: "6px",
+    borderRadius: 8,
     display: "inline-flex",
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 16,
-    background: "linear-gradient(90deg,#3b82f6,#6366f1)",
-    color: "#fff",
-    flexShrink: 0,
   },
 
-  socialLabel: {
-    fontSize: 13,
+  favSectionWrapper: {
+    marginTop: 30,
+  },
+
+  favGrid: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+
+  favCard: {
+    width: 220,
+    background: "#0b1220",
+    borderRadius: 10,
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.05)",
+  },
+
+  favImgWrap: {
+    height: 120,
+    overflow: "hidden",
+  },
+
+  favImg: {
+    width: "100%",
+    height: "120px",
+    objectFit: "cover",
+  },
+
+  favInfo: {
+    padding: 10,
+  },
+
+  favTitle: {
     fontWeight: 800,
-    color: "#e6f0ff",
+    color: "#fff",
+    marginBottom: 4,
   },
 
+  favGenre: {
+    fontSize: 13,
+    color: "#93c5fd",
+    marginBottom: 8,
+  },
+
+  favBtns: {
+    display: "flex",
+    gap: 8,
+  },
+
+  viewBtn: {
+    flex: 1,
+    background: "#2563eb",
+    border: "none",
+    color: "#fff",
+    padding: "8px 10px",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+
+  removeBtn: {
+    background: "transparent",
+    border: "1px solid rgba(255,0,0,0.3)",
+    color: "#ff5b5b",
+    padding: "8px",
+    borderRadius: 8,
+    cursor: "pointer",
+    minWidth: 44,
+  },
 };
+

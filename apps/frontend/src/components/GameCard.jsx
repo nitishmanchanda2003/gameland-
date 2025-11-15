@@ -3,43 +3,53 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import RatingStars from "./RatingStars";
 import { increasePlay } from "../services/gameActions";
+import { useFavorites } from "../services/favoriteActions";
+import { useAuth } from "../context/AuthContext";
 
 export default function GameCard({ game, onPlay }) {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
-  // ⭐ Backend thumbnail fix
+  const fav = isFavorite(game._id);
+
+  // ⭐ Correct backend thumbnail
   const imageSrc = game.thumbnail?.startsWith("/uploads")
     ? `http://localhost:5000${game.thumbnail}`
     : game.thumbnail || game.image || "/fallback.png";
 
-  // ⭐ Prevent spam clicks (cooldown)
+  // ⭐ Play spam block (3 sec cooldown)
   const canPlay = () => {
     const last = localStorage.getItem(`play_${game._id}`);
     if (!last) return true;
-
-    const diff = Date.now() - Number(last);
-    return diff > 3000; // 3 seconds cooldown
+    return Date.now() - Number(last) > 3000;
   };
 
-  // ⭐ Handle Play Button Click
+  // ⭐ Handle Play
   const handlePlayClick = async (e) => {
     e.stopPropagation();
-
-    if (canPlay() === false) {
-      console.log("Play spam blocked");
-      return;
-    }
+    if (!canPlay()) return;
 
     try {
-      await increasePlay(game._id); // backend +1
+      await increasePlay(game._id);
+      localStorage.setItem(`play_${game._id}`, Date.now());
 
-      // save cooldown
-      localStorage.setItem(`play_${game._id}`, Date.now().toString());
-
-      if (onPlay) onPlay(game); // open modal
+      onPlay && onPlay(game);
     } catch (err) {
       console.log("Play count update failed:", err);
     }
+  };
+
+  // ⭐ Favourite Heart
+  const handleFavorite = async (e) => {
+    e.stopPropagation();
+
+    if (!isAuthenticated) {
+      alert("Please login first to add favourites ❤️");
+      return;
+    }
+
+    await toggleFavorite(game._id);
   };
 
   return (
@@ -58,14 +68,30 @@ export default function GameCard({ game, onPlay }) {
         e.currentTarget.style.background = "#1e293b";
       }}
     >
+      {/* ⭐ Favourite Heart */}
+      <div
+        style={{
+          ...styles.heartBtn,
+          color: fav ? "#ff4d6d" : "#ffffffcc",
+          transform: fav ? "scale(1.25)" : "scale(1)",
+        }}
+        onClick={handleFavorite}
+      >
+        {fav ? "❤️" : "🤍"}
+      </div>
+
       <img src={imageSrc} alt={game.title} style={styles.image} />
 
       <div style={styles.info}>
         <h3 style={styles.title}>{game.title}</h3>
         <p style={styles.genre}>{game.genre}</p>
 
-        {/* ⭐ Read-only Rating */}
-        <RatingStars rating={game.rating || 4.0} size={18} readOnly={true} />
+        {/* ⭐ FIXED — Correct average rating */}
+        <RatingStars
+          rating={game.averageRating || 4.0}
+          size={18}
+          editable={false}
+        />
 
         <button
           style={styles.playButton}
@@ -88,6 +114,7 @@ export default function GameCard({ game, onPlay }) {
 
 const styles = {
   card: {
+    position: "relative",
     background: "#1e293b",
     borderRadius: 12,
     overflow: "hidden",
@@ -96,6 +123,18 @@ const styles = {
     transition: "transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease",
     cursor: "pointer",
   },
+
+  heartBtn: {
+    position: "absolute",
+    right: 10,
+    top: 10,
+    fontSize: 24,
+    cursor: "pointer",
+    zIndex: 10,
+    transition: "0.25s",
+    userSelect: "none",
+  },
+
   image: {
     width: "100%",
     height: 140,

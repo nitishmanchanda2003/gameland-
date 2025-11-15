@@ -1,19 +1,19 @@
 // src/components/GameModal.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import RatingStars from "./RatingStars";    // ⭐ Add rating display here
+import RatingStars from "./RatingStars";
 
 export default function GameModal({ game, onClose }) {
   const navigate = useNavigate();
 
   if (!game) return null;
 
-  // ⭐ Fix backend thumbnail
+  // ⭐ Backend thumbnail fix
   const imageSrc = game.thumbnail?.startsWith("/uploads")
     ? `http://localhost:5000${game.thumbnail}`
     : game.thumbnail || game.image || "/fallback.png";
 
-  // ⭐ Navigate only (NO play count here)
+  // ⭐ Navigate only (no play count here)
   const handlePlayNow = () => {
     onClose();
     navigate(`/game/${game.slug}?autoPlay=true`);
@@ -37,8 +37,8 @@ export default function GameModal({ game, onClose }) {
           <h2 style={styles.title}>{game.title}</h2>
           <p style={styles.genre}>{game.genre}</p>
 
-          {/* ⭐ Read-only Rating */}
-          <RatingStars rating={game.rating} size={20} />
+          {/* ⭐ FIXED — correct average rating */}
+          <RatingStars rating={game.averageRating || 4.0} size={20} editable={false} />
 
           <p style={styles.description}>
             {game.description || "No description available."}
@@ -76,7 +76,7 @@ const styles = {
     borderRadius: "14px",
     overflow: "hidden",
     position: "relative",
-    maxHeight: "92vh",           // ⭐ Prevent overflow
+    maxHeight: "92vh",
     overflowY: "auto",
     boxShadow: "0 12px 30px rgba(0,0,0,0.5)",
   },

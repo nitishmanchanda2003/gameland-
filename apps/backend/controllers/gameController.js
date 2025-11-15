@@ -1,5 +1,6 @@
 // backend/controllers/gameController.js
 import Game from "../models/Game.js";
+import User from "../models/User.js";
 import extract from "extract-zip";
 import fs from "fs";
 import path from "path";
@@ -14,14 +15,14 @@ const calculateTrendingScore = (game) => {
     (1000 * 60 * 60 * 24);
 
   return (
-    game.rating * 20 +
+    game.averageRating * 20 +
     game.playCount * 2 +
     Math.max(0, 50 - days)
   );
 };
 
 const calculatePopularScore = (game) => {
-  return game.playCount * 3 + game.rating * 10;
+  return game.playCount * 3 + game.averageRating * 10;
 };
 
 /*******************************************
@@ -29,7 +30,9 @@ const calculatePopularScore = (game) => {
  *******************************************/
 export const getAllGames = async (req, res) => {
   try {
-    let games = await Game.find().sort({ createdAt: -1 });
+    let games = await Game.find()
+      .sort({ createdAt: -1 })
+      .populate("ratings.user", "_id name email");
 
     const finalGames = games.map((g) => ({
       ...g._doc,
@@ -39,7 +42,9 @@ export const getAllGames = async (req, res) => {
 
     return res.json({ success: true, games: finalGames });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Failed to fetch games" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch games" });
   }
 };
 
@@ -48,7 +53,11 @@ export const getAllGames = async (req, res) => {
  *******************************************/
 export const getGameById = async (req, res) => {
   try {
-    const g = await Game.findById(req.params.id);
+    const g = await Game.findById(req.params.id).populate(
+      "ratings.user",
+      "_id name email"
+    );
+
     if (!g) return res.status(404).json({ message: "Game not found" });
 
     return res.json({
@@ -69,7 +78,11 @@ export const getGameById = async (req, res) => {
  *******************************************/
 export const getGameBySlug = async (req, res) => {
   try {
-    const g = await Game.findOne({ slug: req.params.slug });
+    const g = await Game.findOne({ slug: req.params.slug }).populate(
+      "ratings.user",
+      "_id name email"
+    );
+
     if (!g) return res.status(404).json({ message: "Game not found" });
 
     return res.json({
@@ -81,19 +94,23 @@ export const getGameBySlug = async (req, res) => {
       },
     });
   } catch {
-    return res.status(500).json({ message: "Error fetching game by slug" });
+    return res
+      .status(500)
+      .json({ message: "Error fetching game by slug" });
   }
 };
 
 /*******************************************
- * CREATE NEW GAME
+ * CREATE GAME — FIXED
  *******************************************/
 export const createGame = async (req, res) => {
   try {
     const { title, genre, description } = req.body;
 
     if (!req.files?.thumbnail || !req.files?.gameZip) {
-      return res.status(400).json({ message: "Thumbnail & ZIP required" });
+      return res
+        .status(400)
+        .json({ message: "Thumbnail & ZIP required" });
     }
 
     const slug = slugify(title, { lower: true, strict: true });
@@ -103,22 +120,30 @@ export const createGame = async (req, res) => {
 
     const thumbnailURL = `/uploads/thumbnails/${thumbnailFile.filename}`;
 
-    const extractDir = path.join("public/games", slug);
-    if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true });
+    const extractDir = path.join("public", "games", slug);
+
+    if (fs.existsSync(extractDir)) {
+      fs.rmSync(extractDir, { recursive: true });
+    }
 
     fs.mkdirSync(extractDir, { recursive: true });
-    await extract(zipFile.path, { dir: path.resolve(extractDir) });
+
+    try {
+      await extract(zipFile.path, { dir: path.resolve(extractDir) });
+    } catch (err) {
+      return res.status(400).json({ message: "Invalid ZIP file" });
+    }
 
     let indexPath = "";
-    const findIndex = (dir) => {
+    const scan = (dir) => {
       const items = fs.readdirSync(dir);
-      for (let file of items) {
-        const full = path.join(dir, file);
-        if (fs.statSync(full).isDirectory()) findIndex(full);
-        else if (file.toLowerCase() === "index.html") indexPath = full;
+      for (let item of items) {
+        const full = path.join(dir, item);
+        if (fs.statSync(full).isDirectory()) scan(full);
+        else if (item.toLowerCase() === "index.html") indexPath = full;
       }
     };
-    findIndex(extractDir);
+    scan(extractDir);
 
     if (!indexPath) {
       return res.status(400).json({ message: "index.html NOT found" });
@@ -133,16 +158,16 @@ export const createGame = async (req, res) => {
       description,
       thumbnail: thumbnailURL,
       playUrl,
-      rating: 4,
+      averageRating: 4.0,
       totalRatings: 0,
-      ratedIPs: [],
+      ratings: [],
       playedIPs: [],
       playCount: 0,
     });
 
     return res.json({
       success: true,
-      message: "Game Uploaded",
+      message: "Game uploaded",
       game: {
         ...game._doc,
         trendingScore: calculateTrendingScore(game),
@@ -175,7 +200,9 @@ export const updateGame = async (req, res) => {
       },
     });
   } catch {
-    return res.status(500).json({ message: "Failed to update game" });
+    return res
+      .status(500)
+      .json({ message: "Failed to update game" });
   }
 };
 
@@ -192,88 +219,87 @@ export const deleteGame = async (req, res) => {
 
     return res.json({ success: true, message: "Game deleted" });
   } catch {
-    return res.status(500).json({ message: "Failed to delete game" });
+    return res
+      .status(500)
+      .json({ message: "Failed to delete game" });
   }
 };
 
 /*******************************************
- * ⭐ INCREASE PLAYCOUNT (Anti-Spam)
+ * ⭐ INCREASE PLAY COUNT — FIXED
  *******************************************/
 export const increasePlayCount = async (req, res) => {
   try {
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-
     const game = await Game.findById(req.params.id);
-    if (!game) return res.status(404).json({ message: "Game not found" });
-
-    const now = Date.now();
-    const last = game.playedIPs.find((p) => p.ip === ip);
-
-    if (last && now - last.time < 10 * 60 * 1000) {
-      return res.json({ success: true, playCount: game.playCount, ignored: true });
-    }
+    if (!game)
+      return res.status(404).json({ message: "Game not found" });
 
     game.playCount += 1;
-
-    game.playedIPs = [
-      ...game.playedIPs.filter((p) => p.ip !== ip),
-      { ip, time: now },
-    ];
-
     await game.save();
 
-    return res.json({ success: true, playCount: game.playCount });
-  } catch {
+    return res.json({
+      success: true,
+      playCount: game.playCount,
+    });
+  } catch (err) {
+    console.log("PLAYCOUNT ERROR:", err);
     return res.status(500).json({ message: "Failed to increase play" });
   }
 };
 
 /*******************************************
- * ⭐ RATE GAME (EDITABLE RATING SYSTEM)
+ * ⭐ USER RATING — FIXED
  *******************************************/
 export const rateGame = async (req, res) => {
   try {
-    const { stars } = req.body;
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    if (!req.user) {
+      return res.status(401).json({ message: "Login required" });
+    }
 
-    if (!stars || stars < 1 || stars > 5)
+    const userId = req.user._id.toString();
+    const { stars } = req.body;
+
+    if (!stars || stars < 1 || stars > 5) {
       return res.status(400).json({ message: "Stars must be 1–5" });
+    }
 
     const game = await Game.findById(req.params.id);
     if (!game) return res.status(404).json({ message: "Game not found" });
 
-    const existing = game.ratedIPs.find((r) => r.ip === ip);
+    const existing = game.ratings.find((r) => {
+      const rUser = r.user?._id?.toString() ?? r.user?.toString();
+      return rUser === userId;
+    });
 
-    if (existing) {
-      const oldStars = existing.stars;
+    if (existing) existing.stars = stars;
+    else game.ratings.push({ user: userId, stars });
 
-      existing.stars = stars;
+    const user = await User.findById(userId);
 
-      game.rating = Number(
-        (
-          (game.rating * game.totalRatings - oldStars + stars) /
-          game.totalRatings
-        ).toFixed(2)
-      );
-    } else {
-      game.rating = Number(
-        (
-          (game.rating * game.totalRatings + stars) /
-          (game.totalRatings + 1)
-        ).toFixed(2)
-      );
+    const uRated = user.ratedGames.find(
+      (r) => r.game.toString() === game._id.toString()
+    );
 
-      game.totalRatings += 1;
-      game.ratedIPs.push({ ip, stars });
-    }
+    if (uRated) uRated.stars = stars;
+    else user.ratedGames.push({ game: game._id, stars });
 
+    const total = game.ratings.length;
+    const sum = game.ratings.reduce((a, r) => a + r.stars, 0);
+
+    game.totalRatings = total;
+    game.averageRating = Number((sum / total).toFixed(2));
+
+    await user.save();
     await game.save();
 
     return res.json({
       success: true,
-      rating: Number(game.rating.toFixed(1)),
+      rating: game.averageRating,
+      totalRatings: game.totalRatings,
+      userRating: stars,
     });
   } catch (err) {
+    console.log("RATE GAME ERROR:", err);
     return res.status(500).json({ message: "Failed to rate game" });
   }
 };

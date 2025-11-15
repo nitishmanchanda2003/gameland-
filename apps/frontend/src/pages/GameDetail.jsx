@@ -1,14 +1,17 @@
 // src/pages/GameDetail.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { getAllGames } from "../services/api";
+import { getAllGames, getGameBySlug } from "../services/api";
 import { increasePlay, rateGame } from "../services/gameActions";
 import RatingStars from "../components/RatingStars";
 import GamePlayer from "../components/GamePlayer";
+import { useAuth } from "../context/AuthContext";
 
 export default function GameDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated, user, updateUser } = useAuth();
+
   const [searchParams] = useSearchParams();
   const autoPlay = searchParams.get("autoPlay") === "true";
 
@@ -16,37 +19,67 @@ export default function GameDetail() {
   const [allGames, setAllGames] = useState([]);
   const [startGame, setStartGame] = useState(autoPlay);
   const [animate, setAnimate] = useState(false);
-  const [userRating, setUserRating] = useState(null); // ⭐ local rating
+
+  const [userRating, setUserRating] = useState(null);
 
   /**************************************************
-   * LOAD GAMES
+   * LOAD GAME
    **************************************************/
   useEffect(() => {
-    async function loadData() {
+    async function load() {
       try {
-        const res = await getAllGames();
-        const list = res.data.games || [];
+        const listRes = await getAllGames();
+        const list = listRes.data.games || [];
         setAllGames(list);
 
-        const found = list.find((x) => x.slug === slug);
+        const gameRes = await getGameBySlug(slug);
+        const found = gameRes.data.game;
         setGame(found);
 
-        // ⭐ Restore previous rating from localStorage
-        if (found) {
-          const ls = localStorage.getItem(`rated_${found._id}`);
-          if (ls) setUserRating(Number(ls));
+        let rating = null;
+
+        /**************************************************
+         * ⭐ 1) Check game.ratings[]
+         **************************************************/
+        if (found && isAuthenticated && user) {
+          const uRate = found.ratings?.find((r) => {
+            const id =
+              r.user?._id ||
+              r.user?.toString?.() ||
+              r.user;
+
+            return String(id) === String(user.id || user._id);
+          });
+
+          if (uRate) rating = uRate.stars;
         }
+
+        /**************************************************
+         * ⭐ 2) Fallback → user.ratedGames (correct backend field = game)
+         **************************************************/
+        if (!rating && user?.ratedGames) {
+          const fromUser = user.ratedGames.find(
+            (x) => String(x.game) === String(found._id)
+          );
+          if (fromUser) rating = fromUser.stars;
+        }
+
+        setUserRating(rating ?? null);
+
       } catch (err) {
-        console.log("Fetch failed:", err);
+        console.log("Error loading game:", err);
       }
     }
-    loadData();
-  }, [slug]);
+    load();
+  }, [slug, isAuthenticated, user]);
 
   useEffect(() => {
-    setTimeout(() => setAnimate(true), 100);
+    setTimeout(() => setAnimate(true), 120);
   }, []);
 
+  /**************************************************
+   * AUTO SCROLL FOR AUTOPLAY
+   **************************************************/
   useEffect(() => {
     if (autoPlay) {
       setTimeout(() => {
@@ -56,22 +89,19 @@ export default function GameDetail() {
   }, [autoPlay]);
 
   /**************************************************
-   * ⭐ SAFE PLAY COUNT
+   * PLAY COUNT
    **************************************************/
   const handleStartGame = async () => {
     setStartGame(true);
 
     try {
-      const result = await increasePlay(game._id);
+      const r = await increasePlay(game._id);
 
-      if (!result?.ignored) {
-        setGame((prev) => ({
-          ...prev,
-          playCount: prev.playCount + 1,
-        }));
+      if (!r?.ignored) {
+        setGame((prev) => ({ ...prev, playCount: prev.playCount + 1 }));
       }
-    } catch (e) {
-      console.log("Play error:", e);
+    } catch (err) {
+      console.log("Play error:", err);
     }
 
     setTimeout(() => {
@@ -80,9 +110,14 @@ export default function GameDetail() {
   };
 
   /**************************************************
-   * ⭐ HANDLE EDITABLE RATING
+   * ⭐ RATE GAME (FULL FIX)
    **************************************************/
   const handleRating = async (stars) => {
+    if (!isAuthenticated) {
+      alert("Please login to rate this game.");
+      return;
+    }
+
     try {
       const res = await rateGame(game._id, stars);
 
@@ -91,37 +126,63 @@ export default function GameDetail() {
         return;
       }
 
-      // ⭐ Save locally so UI remembers user's choice
-      localStorage.setItem(`rated_${game._id}`, stars);
       setUserRating(stars);
 
-      // ⭐ Update new average rating in UI
+      /**************************************************
+       * ⭐ 1) Update user.ratedGames in AuthContext
+       **************************************************/
+      const updatedRatedGames = [
+        ...(user.ratedGames || []).filter(
+          (x) => String(x.game) !== String(game._id)
+        ),
+        { game: game._id, stars },
+      ];
+
+      updateUser({ ratedGames: updatedRatedGames });
+
+      /**************************************************
+       * ⭐ 2) Update game.ratings[] inside component
+       **************************************************/
       setGame((prev) => ({
         ...prev,
-        rating: res.rating,
+        averageRating: res.rating,
+        totalRatings: res.totalRatings,
+
+        ratings: (() => {
+          const arr = [...prev.ratings];
+          const index = arr.findIndex((r) => {
+            const id =
+              r.user?._id ||
+              r.user?.toString?.() ||
+              r.user;
+            return String(id) === String(user.id || user._id);
+          });
+
+          if (index >= 0) {
+            arr[index].stars = stars;
+          } else {
+            arr.push({ user: { _id: user._id }, stars });
+          }
+
+          return arr;
+        })(),
       }));
     } catch (err) {
       console.log("Rating error:", err);
     }
   };
 
-  /**************************************************
-   * GAME NOT FOUND
-   **************************************************/
   if (!game) {
     return (
       <div style={{ padding: 20, color: "#fff" }}>
         <h2>Game Not Found</h2>
         <button style={styles.backBtn} onClick={() => navigate(-1)}>
-          Go Back
+          Back
         </button>
       </div>
     );
   }
 
-  /**************************************************
-   * IMAGE FIX
-   **************************************************/
   const bannerImg = game.thumbnail?.startsWith("/uploads")
     ? `http://localhost:5000${game.thumbnail}`
     : game.thumbnail;
@@ -143,9 +204,6 @@ export default function GameDetail() {
           transition: "opacity .6s ease",
         }}
       >
-        {/* -------------------------------------------------------
-            BANNER
-        ------------------------------------------------------- */}
         <div style={styles.bannerWrapper}>
           <img src={bannerImg} style={styles.bannerImg} />
           <div style={styles.bannerGradient}></div>
@@ -154,15 +212,14 @@ export default function GameDetail() {
             <h1 style={styles.gameTitle}>{game.title}</h1>
             <p style={styles.genre}>{game.genre}</p>
 
-            {/* ⭐ Editable Rating Component */}
             <RatingStars
-  rating={game.rating}
-  userRating={userRating}
-  onRate={handleRating}
-  size={26}
-  showUserTag={true}
-/>
-
+              rating={game.averageRating}
+              userRating={userRating}
+              onRate={handleRating}
+              size={26}
+              showUserTag={true}
+              editable={true}
+            />
 
             {!startGame && (
               <button style={styles.playBtn} onClick={handleStartGame}>
@@ -172,9 +229,6 @@ export default function GameDetail() {
           </div>
         </div>
 
-        {/* -------------------------------------------------------
-            STATS
-        ------------------------------------------------------- */}
         <div style={styles.statsRow}>
           <div style={styles.statBox}>
             <span style={styles.statValue}>{game.playCount}</span>
@@ -182,7 +236,9 @@ export default function GameDetail() {
           </div>
 
           <div style={styles.statBox}>
-            <span style={styles.statValue}>{game.rating.toFixed(1)}</span>
+            <span style={styles.statValue}>
+              {game.averageRating?.toFixed(1)}
+            </span>
             <span style={styles.statLabel}>Rating</span>
           </div>
 
@@ -194,9 +250,6 @@ export default function GameDetail() {
           </div>
         </div>
 
-        {/* -------------------------------------------------------
-            DESCRIPTION
-        ------------------------------------------------------- */}
         <div style={styles.descriptionBox}>
           <h3 style={styles.aboutTitle}>About This Game</h3>
           <p style={styles.description}>
@@ -204,18 +257,12 @@ export default function GameDetail() {
           </p>
         </div>
 
-        {/* -------------------------------------------------------
-            PLAYER
-        ------------------------------------------------------- */}
         {startGame && (
           <div style={styles.playerWrapper}>
             <GamePlayer gameUrl={game.playUrl} />
           </div>
         )}
 
-        {/* -------------------------------------------------------
-            RELATED
-        ------------------------------------------------------- */}
         {related.length > 0 && (
           <div style={styles.relatedSection}>
             <h3 style={styles.relatedTitle}>You Might Also Like</h3>
@@ -246,7 +293,8 @@ export default function GameDetail() {
   );
 }
 
-/* ------------------ STYLES (same as before) ------------------ */
+/* ------------------ STYLES ------------------ */
+/* (untouched, same as your file) */
 const styles = {
   pageFrame: {
     padding: "20px",

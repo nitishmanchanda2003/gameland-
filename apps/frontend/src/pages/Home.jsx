@@ -10,7 +10,7 @@ export default function Home() {
   const [animate, setAnimate] = useState(false);
 
   // -------------------------------------------------
-  // ⭐ Fetch Games Once
+  // ⭐ Fetch Games Once (correct — averageRating included)
   // -------------------------------------------------
   useEffect(() => {
     async function loadGames() {
@@ -59,7 +59,6 @@ export default function Home() {
 
   return (
     <div style={styles.wrapper}>
-
       {/* ---------------- HERO SECTION ---------------- */}
       <section
         style={{
@@ -163,7 +162,8 @@ const styles = {
     left: "-35%",
     width: "200%",
     height: "200%",
-    background: "radial-gradient(circle, rgba(96,165,250,0.17), transparent 70%)",
+    background:
+      "radial-gradient(circle, rgba(96,165,250,0.17), transparent 70%)",
     filter: "blur(120px)",
   },
   heroTitle: {

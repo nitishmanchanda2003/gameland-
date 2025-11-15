@@ -85,6 +85,10 @@ router.post("/login", async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
+
+        // ⭐ NEW → Send favorites & rated games
+        favorites: user.favorites || [],
+        ratedGames: user.ratedGames || [],
       },
     });
   } catch (error) {
@@ -110,8 +114,7 @@ router.post("/google-login", async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-
-    const { email, name, picture, sub } = payload;  // sub = Google User ID
+    const { email, name, picture, sub } = payload;
 
     if (!email)
       return res.status(400).json({ message: "Google authentication failed" });
@@ -145,6 +148,10 @@ router.post("/google-login", async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
+
+        // ⭐ NEW → Send favorites & rated games
+        favorites: user.favorites || [],
+        ratedGames: user.ratedGames || [],
       },
     });
   } catch (error) {

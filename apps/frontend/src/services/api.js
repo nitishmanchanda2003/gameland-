@@ -20,43 +20,41 @@ export const loginUser = (data) => API.post("/auth/login", data);
 export const registerUser = (data) => API.post("/auth/register", data);
 
 /**************************************
- *  GAMES API — FILE UPLOAD SUPPORTED
+ *  GAMES API
  **************************************/
 
-// GET all games
 export const getAllGames = () => API.get("/games");
 
-// GET single game
-export const getGameById = (id) => API.get(`/games/${id}`);
+// ⭐ Fully populated game (correct endpoint)
+export const getGameBySlug = (slug) => API.get(`/games/slug/${slug}`);
 
-// CREATE — Thumbnail + Zip upload
+export const getGameById = (id) => API.get(`/games/id/${id}`);
+
 export const createGame = (formData) =>
   API.post("/games", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-// UPDATE — Thumbnail + Zip re-upload possible
 export const updateGame = (id, formData) =>
   API.put(`/games/${id}`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-// DELETE
 export const deleteGame = (id) => API.delete(`/games/${id}`);
 
 /**************************************
- *  GAME ACTIONS (NEW)
+ *  GAME ACTIONS
  **************************************/
 
-// ⭐ Increase play count
-export const increasePlayCount = (id) => API.post(`/games/${id}/play`);
+// ⭐ Only used by internal services, name simplified:
+export const apiIncreasePlay = (id) => API.post(`/games/${id}/play`);
 
-// ⭐ Rate the game
-export const rateGame = (id, rating) =>
-  API.post(`/games/${id}/rate`, { rating });
+// ⭐ Used by gameActions.js internally
+export const apiRateGame = (id, stars) =>
+  API.post(`/games/${id}/rate`, { stars });
 
 /**************************************
- *  TEST API
+ *  TEST
  **************************************/
 export const getTestData = () => API.get("/test");
 

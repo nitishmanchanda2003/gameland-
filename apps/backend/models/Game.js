@@ -44,9 +44,17 @@ const gameSchema = new mongoose.Schema(
     },
 
     /************************************
-     * ⭐ RATING SYSTEM
+     * ⭐ USER-BASED RATING SYSTEM
      ************************************/
-    rating: {
+    ratings: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        stars: { type: Number, min: 1, max: 5 },
+      },
+    ],
+
+    // ⭐ AVERAGE RATING (calculated in controller)
+    averageRating: {
       type: Number,
       default: 4.0,
       min: 0,
@@ -57,14 +65,6 @@ const gameSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-
-    // ⭐ IMPORTANT CHANGE — store IP + stars
-    ratedIPs: [
-      {
-        ip: { type: String },
-        stars: { type: Number, min: 1, max: 5 },
-      },
-    ],
 
     /************************************
      * ⭐ PLAY COUNT SYSTEM
@@ -77,12 +77,12 @@ const gameSchema = new mongoose.Schema(
     playedIPs: [
       {
         ip: { type: String },
-        time: { type: Number }, // timestamp
+        time: { type: Number },
       },
     ],
 
     /************************************
-     * ⭐ ANALYTICS (CALCULATED)
+     * ⭐ ANALYTICS
      ************************************/
     trendingScore: {
       type: Number,

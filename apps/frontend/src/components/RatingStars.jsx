@@ -1,13 +1,15 @@
 // src/components/RatingStars.jsx
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * Props:
- * rating      = backend average rating (float)
- * userRating  = user's own rating (optional)
+ * rating      = backend average rating
+ * userRating  = user's rating (if logged-in)
  * size        = star size
- * onRate      = callback when user rates
- * showUserTag = show "You rated X" or "Please rate" (default: false)
+ * onRate      = function(stars)
+ * showUserTag = show "You rated: X"
+ * editable    = allow clicking stars
  */
 export default function RatingStars({
   rating = 4,
@@ -15,21 +17,35 @@ export default function RatingStars({
   size = 22,
   onRate = null,
   showUserTag = false,
+  editable = false,
 }) {
-  const [hovered, setHovered] = useState(0);
-  const [display, setDisplay] = useState(userRating || rating);
+  const { isAuthenticated } = useAuth();
 
-  // Update display when props change
+  const [hover, setHover] = useState(0);
+  const [display, setDisplay] = useState(rating);
+
+  // ⭐ FIXED PRIORITY LOGIC:
+  // userRating → highest priority
+  // else → show average rating
   useEffect(() => {
-    setDisplay(userRating || rating);
+    if (userRating !== null && userRating !== undefined) {
+      setDisplay(userRating);
+    } else {
+      setDisplay(rating);
+    }
   }, [rating, userRating]);
 
   const totalStars = 5;
 
   const handleClick = (value) => {
-    if (!onRate) return; // read-only
+    if (!editable || !onRate) return;
 
-    setDisplay(value);
+    if (!isAuthenticated) {
+      alert("Please login first to rate.");
+      return;
+    }
+
+    setDisplay(value); // instant update
     onRate(value);
   };
 
@@ -39,18 +55,23 @@ export default function RatingStars({
         {[...Array(totalStars)].map((_, i) => {
           const value = i + 1;
 
+          const active =
+            hover !== 0
+              ? value <= hover
+              : value <= display;
+
           return (
             <span
               key={value}
               style={{
                 ...styles.star,
                 fontSize: size,
-                cursor: onRate ? "pointer" : "default",
-                color: value <= (hovered || display) ? "#facc15" : "#475569",
-                transform: hovered === value ? "scale(1.25)" : "scale(1)",
+                cursor: editable ? "pointer" : "default",
+                color: active ? "#facc15" : "#475569",
+                transform: hover === value ? "scale(1.22)" : "scale(1)",
               }}
-              onMouseEnter={() => onRate && setHovered(value)}
-              onMouseLeave={() => onRate && setHovered(0)}
+              onMouseEnter={() => editable && setHover(value)}
+              onMouseLeave={() => editable && setHover(0)}
               onClick={() => handleClick(value)}
             >
               ★
@@ -58,17 +79,19 @@ export default function RatingStars({
           );
         })}
 
-        {/* ⭐ Always show backend avg rating number on read-only places */}
-        {!onRate && (
+        {/* ⭐ Average visible only when not editable */}
+        {!editable && (
           <span style={{ ...styles.text, fontSize: size * 0.65 }}>
-            {rating.toFixed(1)}
+            {rating?.toFixed(1)}
           </span>
         )}
 
-        {/* ⭐ On GameDetail: show user message */}
-        {showUserTag && onRate && (
+        {/* ⭐ FIXED USER TAG LOGIC */}
+        {editable && showUserTag && (
           <span style={{ ...styles.userTag, fontSize: size * 0.6 }}>
-            {userRating
+            {!isAuthenticated
+              ? "Login to rate this game"
+              : userRating !== null
               ? `You rated: ${userRating} ★`
               : "Please rate this game"}
           </span>
@@ -91,6 +114,7 @@ const styles = {
   },
   star: {
     transition: "all 0.25s ease",
+    userSelect: "none",
   },
   text: {
     marginLeft: 6,
@@ -100,5 +124,6 @@ const styles = {
   userTag: {
     marginLeft: 10,
     color: "#94a3b8",
+    fontWeight: 500,
   },
 };
