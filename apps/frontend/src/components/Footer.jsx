@@ -32,7 +32,7 @@ export default function Footer() {
             <div style={styles.groupTitle}>Company</div>
             <a href="#" style={styles.link}>About</a>
             <a href="#" style={styles.link}>Contact</a>
-            <a href="#" style={styles.link}>Privacy</a>
+            <a href="#" style={styles.link}>Games</a>
           </div>
         </div>
 
