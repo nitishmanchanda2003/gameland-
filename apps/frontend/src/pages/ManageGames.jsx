@@ -76,18 +76,18 @@ export default function ManageGames() {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th>Thumbnail</th>
-                  <th>Title</th>
-                  <th>Genre</th>
-                  <th>Rating</th>
-                  <th>Actions</th>
+                  <th style={{ width: "120px", padding: "14px 10px", textAlign: "left" }}>Thumbnail</th>
+                  <th style={styles.thead}>Title</th>
+                  <th style={styles.thead}>Genre</th>
+                  <th style={styles.thead}>Rating</th>
+                  <th style={styles.thead}>Actions</th>
                 </tr>
               </thead>
 
               <tbody>
                 {games.map((game) => (
                   <tr key={game._id} style={styles.row}>
-                    <td>
+                    <td style={{ padding: "10px", verticalAlign: "middle" }}>
                      <img src={ game.thumbnail?.startsWith("/uploads")
         ? `http://localhost:5000${game.thumbnail}`
         : game.thumbnail
@@ -174,9 +174,15 @@ const styles = {
   },
 
   table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
+  width: "100%",
+  borderCollapse: "collapse",
+  textAlign: "left",
+},
+thead: {
+  padding: "14px 10px",
+  textAlign: "left",
+},
+
 
   row: {
     background: "rgba(255,255,255,0.04)",
@@ -191,8 +197,9 @@ const styles = {
   },
 
   text: {
-    padding: "10px",
-  },
+  padding: "14px 10px",
+  verticalAlign: "middle",
+},
 
   actions: {
     display: "flex",
