@@ -11,33 +11,54 @@ export default function EditGame() {
 
   const [animate, setAnimate] = useState(false);
 
-  // Form fields
+  // TEXT FIELDS
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("");
   const [description, setDescription] = useState("");
-  const [thumbnail, setThumbnail] = useState("");
-  const [playUrl, setPlayUrl] = useState("");
   const [rating, setRating] = useState(4.0);
 
+  // EXISTING (from backend)
+  const [thumbnailURL, setThumbnailURL] = useState("");
+  const [zipURL, setZipURL] = useState("");
+
+  // NEW FILES
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [zipFile, setZipFile] = useState(null);
+
+  // UI STATE
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Fetch existing game details
+  // ✔ FIXED filename extractor
+  const getFileName = (value) => {
+    if (!value || typeof value !== "string") return "No file";
+
+    const clean = value.trim().replace(/\\/g, "/");
+    const file = clean.split("/").pop();
+
+    if (!file || !file.includes(".")) return "No file";
+
+    return file;
+  };
+
+  // LOAD EXISTING GAME
   const fetchGame = async () => {
     try {
       setLoading(true);
-      const res = await getGameById(id);
 
+      const res = await getGameById(id);
       const g = res.data.game;
 
       setTitle(g.title);
       setGenre(g.genre);
       setDescription(g.description || "");
-      setThumbnail(g.thumbnail);
-      setPlayUrl(g.playUrl);
-      setRating(g.rating || 4.0);
+
+      // ✔ Never modify backend paths!
+      setThumbnailURL(g.thumbnail || "");
+      setZipURL(g.gameZip || "");
+
     } catch (err) {
       setErrorMsg("Failed to load game details");
     } finally {
@@ -55,35 +76,43 @@ export default function EditGame() {
     setTimeout(() => setAnimate(true), 80);
   }, [user]);
 
+  // FILE HANDLERS
+  const handleThumbnail = (e) => {
+    const file = e.target.files?.[0] || null;
+    setThumbnailFile(file);
+  };
+
+  const handleZipFile = (e) => {
+    const file = e.target.files?.[0] || null;
+    setZipFile(file);
+  };
+
+  // UPDATE GAME API
   const handleUpdate = async () => {
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (!title || !genre || !thumbnail || !playUrl) {
-      setErrorMsg("Please fill all required fields.");
+    if (!title.trim() || !genre.trim()) {
+      setErrorMsg("Title and Genre are required.");
       return;
     }
-
-    const updatedData = {
-      title,
-      slug: title.toLowerCase().replace(/\s+/g, "-"),
-      genre,
-      description,
-      thumbnail,
-      playUrl,
-      rating,
-    };
 
     try {
       setSaving(true);
 
-      const res = await updateGame(id, updatedData);
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("genre", genre);
+      formData.append("description", description);
+
+      if (thumbnailFile) formData.append("thumbnail", thumbnailFile);
+      if (zipFile) formData.append("gameZip", zipFile);
+
+      const res = await updateGame(id, formData);
 
       if (res.data.success) {
         setSuccessMsg("Game updated successfully!");
-        setTimeout(() => navigate("/admin/games"), 1000);
-      } else {
-        setErrorMsg("Update failed");
+        setTimeout(() => navigate("/admin/games"), 1200);
       }
     } catch (err) {
       setErrorMsg("Failed to update game");
@@ -112,6 +141,7 @@ export default function EditGame() {
             {errorMsg && <div style={styles.error}>{errorMsg}</div>}
             {successMsg && <div style={styles.success}>{successMsg}</div>}
 
+            {/* TITLE */}
             <div style={styles.field}>
               <label style={styles.label}>Game Title *</label>
               <input
@@ -121,6 +151,7 @@ export default function EditGame() {
               />
             </div>
 
+            {/* GENRE */}
             <div style={styles.field}>
               <label style={styles.label}>Genre *</label>
               <input
@@ -130,24 +161,43 @@ export default function EditGame() {
               />
             </div>
 
+            {/* THUMBNAIL */}
             <div style={styles.field}>
-              <label style={styles.label}>Thumbnail URL *</label>
+              <label style={styles.label}>Thumbnail Image</label>
               <input
+                type="file"
+                accept="image/png, image/jpeg"
                 style={styles.input}
-                value={thumbnail}
-                onChange={(e) => setThumbnail(e.target.value)}
+                onChange={handleThumbnail}
               />
+
+              {thumbnailFile ? (
+                <p style={styles.fileName}>New: {thumbnailFile.name}</p>
+              ) : (
+                <p style={styles.fileName}>
+                  Current: {getFileName(thumbnailURL)}
+                </p>
+              )}
             </div>
 
+            {/* ZIP FILE */}
             <div style={styles.field}>
-              <label style={styles.label}>Play URL *</label>
+              <label style={styles.label}>Game ZIP File</label>
               <input
+                type="file"
+                accept=".zip"
                 style={styles.input}
-                value={playUrl}
-                onChange={(e) => setPlayUrl(e.target.value)}
+                onChange={handleZipFile}
               />
+
+              {zipFile ? (
+                <p style={styles.fileName}>New: {zipFile.name}</p>
+              ) : (
+                <p style={styles.fileName}>Current: {getFileName(zipURL)}</p>
+              )}
             </div>
 
+            {/* DESCRIPTION */}
             <div style={styles.field}>
               <label style={styles.label}>Description</label>
               <textarea
@@ -157,11 +207,7 @@ export default function EditGame() {
               />
             </div>
 
-            <button
-              style={styles.btn}
-              disabled={saving}
-              onClick={handleUpdate}
-            >
+            <button style={styles.btn} disabled={saving} onClick={handleUpdate}>
               {saving ? "Saving…" : "Save Changes"}
             </button>
           </>
@@ -171,7 +217,10 @@ export default function EditGame() {
   );
 }
 
-// ---------- PREMIUM UI ----------
+// styles remain unchanged...
+
+
+// --------------------- UI STYLES ---------------------
 const styles = {
   wrapper: {
     minHeight: "calc(100vh - 70px)",
@@ -231,6 +280,12 @@ const styles = {
     background: "rgba(255,255,255,0.06)",
     border: "1px solid rgba(255,255,255,0.15)",
     color: "#fff",
+  },
+
+  fileName: {
+    color: "#93c5fd",
+    marginTop: 5,
+    fontSize: 13,
   },
 
   btn: {

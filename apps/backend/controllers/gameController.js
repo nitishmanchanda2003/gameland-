@@ -101,7 +101,7 @@ export const getGameBySlug = async (req, res) => {
 };
 
 /*******************************************
- * CREATE GAME — FIXED
+ * CREATE GAME — FIXED AND COMPLETE
  *******************************************/
 export const createGame = async (req, res) => {
   try {
@@ -119,6 +119,7 @@ export const createGame = async (req, res) => {
     const zipFile = req.files.gameZip[0];
 
     const thumbnailURL = `/uploads/thumbnails/${thumbnailFile.filename}`;
+    const zipURL = `/uploads/gameZips/${zipFile.filename}`; // ⭐ SAVE ZIP PATH
 
     const extractDir = path.join("public", "games", slug);
 
@@ -157,6 +158,7 @@ export const createGame = async (req, res) => {
       genre,
       description,
       thumbnail: thumbnailURL,
+      gameZip: zipURL, // ⭐ STORE ZIP IN DB
       playUrl,
       averageRating: 4.0,
       totalRatings: 0,
@@ -180,29 +182,89 @@ export const createGame = async (req, res) => {
 };
 
 /*******************************************
- * UPDATE GAME
+ * UPDATE GAME — ZIP + IMAGE FULLY FIXED
  *******************************************/
 export const updateGame = async (req, res) => {
   try {
-    const game = await Game.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-
+    const game = await Game.findById(req.params.id);
     if (!game) return res.status(404).json({ message: "Game not found" });
+
+    const { title, genre, description, rating } = req.body;
+
+    const newSlug = slugify(title, { lower: true, strict: true });
+
+    let thumbnailURL = game.thumbnail;
+    let zipURL = game.gameZip;
+    let playUrl = game.playUrl;
+
+    /************ THUMBNAIL UPDATE ************/
+    if (req.files?.thumbnail?.[0]) {
+      const file = req.files.thumbnail[0];
+      thumbnailURL = `/uploads/thumbnails/${file.filename}`;
+    }
+
+    /************ ZIP UPDATE ************/
+    if (req.files?.gameZip?.[0]) {
+      const zipFile = req.files.gameZip[0];
+
+      zipURL = `/uploads/gameZips/${zipFile.filename}`;
+
+      const extractDir = path.join("public", "games", newSlug);
+
+      if (fs.existsSync(extractDir)) {
+        fs.rmSync(extractDir, { recursive: true });
+      }
+
+      fs.mkdirSync(extractDir, { recursive: true });
+
+      try {
+        await extract(zipFile.path, { dir: path.resolve(extractDir) });
+      } catch {
+        return res.status(400).json({ message: "Invalid ZIP file" });
+      }
+
+      let indexPath = "";
+      const scan = (dir) => {
+        const items = fs.readdirSync(dir);
+        for (let item of items) {
+          const full = path.join(dir, item);
+          if (fs.statSync(full).isDirectory()) scan(full);
+          else if (item.toLowerCase() === "index.html") indexPath = full;
+        }
+      };
+      scan(extractDir);
+
+      if (!indexPath) {
+        return res.status(400).json({ message: "index.html NOT found" });
+      }
+
+      playUrl = indexPath.replace("public", "").replace(/\\/g, "/");
+    }
+
+    /************ UPDATE DB ************/
+    game.title = title;
+    game.slug = newSlug;
+    game.genre = genre;
+    game.description = description;
+    game.rating = rating;
+    game.thumbnail = thumbnailURL;
+    game.gameZip = zipURL; // ⭐ UPDATE ZIP
+    game.playUrl = playUrl;
+
+    await game.save();
 
     return res.json({
       success: true,
-      message: "Game updated",
+      message: "Game updated successfully",
       game: {
         ...game._doc,
         trendingScore: calculateTrendingScore(game),
         popularScore: calculatePopularScore(game),
       },
     });
-  } catch {
-    return res
-      .status(500)
-      .json({ message: "Failed to update game" });
+  } catch (err) {
+    console.log("UPDATE GAME ERROR:", err);
+    return res.status(500).json({ message: "Failed to update game" });
   }
 };
 
@@ -219,14 +281,12 @@ export const deleteGame = async (req, res) => {
 
     return res.json({ success: true, message: "Game deleted" });
   } catch {
-    return res
-      .status(500)
-      .json({ message: "Failed to delete game" });
+    return res.status(500).json({ message: "Failed to delete game" });
   }
 };
 
 /*******************************************
- * ⭐ INCREASE PLAY COUNT — FIXED
+ * INCREASE PLAY COUNT
  *******************************************/
 export const increasePlayCount = async (req, res) => {
   try {
@@ -248,7 +308,7 @@ export const increasePlayCount = async (req, res) => {
 };
 
 /*******************************************
- * ⭐ USER RATING — FIXED
+ * USER RATING SYSTEM
  *******************************************/
 export const rateGame = async (req, res) => {
   try {
