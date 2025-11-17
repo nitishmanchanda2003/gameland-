@@ -88,10 +88,7 @@ export default function ManageGames() {
                 {games.map((game) => (
                   <tr key={game._id} style={styles.row}>
                     <td>
-                     
-  <img
-    src={
-      game.thumbnail?.startsWith("/uploads")
+                     <img src={ game.thumbnail?.startsWith("/uploads")
         ? `http://localhost:5000${game.thumbnail}`
         : game.thumbnail
     }
