@@ -3,11 +3,18 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    // Remove deprecated warnings
+    mongoose.set("strictQuery", false);
+
+    const uri = process.env.MONGO_URI;
+    console.log("🔌 Connecting to MongoDB Atlas...");
+
+    const conn = await mongoose.connect(uri);
+
+    console.log(`✅ MongoDB Atlas Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`❌ MongoDB Error: ${error.message}`);
-    process.exit(1); // Server band ho jayega error par
+    console.error("❌ MongoDB Connection Error:", error.message);
+    process.exit(1);
   }
 };
 

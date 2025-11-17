@@ -17,7 +17,7 @@ export default function GameDetail() {
 
   const [game, setGame] = useState(null);
   const [allGames, setAllGames] = useState([]);
-  const [startGame, setStartGame] = useState(autoPlay);
+  const [startGame, setStartGame] = useState(false);
   const [animate, setAnimate] = useState(false);
 
   const [userRating, setUserRating] = useState(null);
@@ -39,7 +39,7 @@ export default function GameDetail() {
         let rating = null;
 
         /**************************************************
-         * ⭐ 1) Check game.ratings[]
+         * 1) Check game.ratings[]
          **************************************************/
         if (found && isAuthenticated && user) {
           const uRate = found.ratings?.find((r) => {
@@ -55,7 +55,7 @@ export default function GameDetail() {
         }
 
         /**************************************************
-         * ⭐ 2) Fallback → user.ratedGames (correct backend field = game)
+         * 2) Fallback → user.ratedGames
          **************************************************/
         if (!rating && user?.ratedGames) {
           const fromUser = user.ratedGames.find(
@@ -78,39 +78,40 @@ export default function GameDetail() {
   }, []);
 
   /**************************************************
-   * AUTO SCROLL FOR AUTOPLAY
+   * PLAY COUNT — UPDATED (NO DOUBLE COUNT)
    **************************************************/
-  useEffect(() => {
-    if (autoPlay) {
-      setTimeout(() => {
-        window.scrollTo({ top: 330, behavior: "smooth" });
-      }, 250);
-    }
-  }, [autoPlay]);
-
-  /**************************************************
-   * PLAY COUNT
-   **************************************************/
-  const handleStartGame = async () => {
+  const handleStartGame = async (isAuto = false) => {
     setStartGame(true);
 
-    try {
-      const r = await increasePlay(game._id);
-
-      if (!r?.ignored) {
-        setGame((prev) => ({ ...prev, playCount: prev.playCount + 1 }));
+    // ⭐ AutoPlay case → already counted in GameCard → skip
+    if (!isAuto) {
+      try {
+        const r = await increasePlay(game._id);
+        if (!r?.ignored) {
+          setGame((prev) => ({ ...prev, playCount: prev.playCount + 1 }));
+        }
+      } catch (err) {
+        console.log("Play error:", err);
       }
-    } catch (err) {
-      console.log("Play error:", err);
     }
 
+    // scroll to game frame
     setTimeout(() => {
       window.scrollTo({ top: 330, behavior: "smooth" });
     }, 200);
   };
 
   /**************************************************
-   * ⭐ RATE GAME (FULL FIX)
+   * AUTO START GAME
+   **************************************************/
+  useEffect(() => {
+    if (autoPlay) {
+      handleStartGame(true); // ⭐ auto flag
+    }
+  }, [autoPlay]);
+
+  /**************************************************
+   * ⭐ RATE GAME
    **************************************************/
   const handleRating = async (stars) => {
     if (!isAuthenticated) {
@@ -129,7 +130,7 @@ export default function GameDetail() {
       setUserRating(stars);
 
       /**************************************************
-       * ⭐ 1) Update user.ratedGames in AuthContext
+       * Update user.ratedGames
        **************************************************/
       const updatedRatedGames = [
         ...(user.ratedGames || []).filter(
@@ -141,7 +142,7 @@ export default function GameDetail() {
       updateUser({ ratedGames: updatedRatedGames });
 
       /**************************************************
-       * ⭐ 2) Update game.ratings[] inside component
+       * Update game.ratings[] inside component
        **************************************************/
       setGame((prev) => ({
         ...prev,
@@ -222,7 +223,7 @@ export default function GameDetail() {
             />
 
             {!startGame && (
-              <button style={styles.playBtn} onClick={handleStartGame}>
+              <button style={styles.playBtn} onClick={() => handleStartGame(false)}>
                 ▶ Play Now
               </button>
             )}
@@ -294,7 +295,7 @@ export default function GameDetail() {
 }
 
 /* ------------------ STYLES ------------------ */
-/* (untouched, same as your file) */
+/* (same as your original file) */
 const styles = {
   pageFrame: {
     padding: "20px",

@@ -6,41 +6,41 @@ import { increasePlay } from "../services/gameActions";
 import { useFavorites } from "../services/favoriteActions";
 import { useAuth } from "../context/AuthContext";
 
-export default function GameCard({ game, onPlay }) {
+export default function GameCard({ game }) {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const fav = isFavorite(game._id);
 
-  // ⭐ Correct backend thumbnail
+  // ⭐ Correct thumbnail
   const imageSrc = game.thumbnail?.startsWith("/uploads")
     ? `http://localhost:5000${game.thumbnail}`
     : game.thumbnail || game.image || "/fallback.png";
 
-  // ⭐ Play spam block (3 sec cooldown)
+  // ⭐ Play spam block (3 sec)
   const canPlay = () => {
     const last = localStorage.getItem(`play_${game._id}`);
     if (!last) return true;
     return Date.now() - Number(last) > 3000;
   };
 
-  // ⭐ Handle Play
+  // ⭐ Direct Play from GameCard
   const handlePlayClick = async (e) => {
     e.stopPropagation();
     if (!canPlay()) return;
 
     try {
-      await increasePlay(game._id);
+      await increasePlay(game._id);       // ⭐ COUNT PLAY HERE
       localStorage.setItem(`play_${game._id}`, Date.now());
-
-      onPlay && onPlay(game);
     } catch (err) {
       console.log("Play count update failed:", err);
     }
+
+    navigate(`/game/${game.slug}?autoPlay=true`);
   };
 
-  // ⭐ Favourite Heart
+  // ⭐ Favourite toggle
   const handleFavorite = async (e) => {
     e.stopPropagation();
 
@@ -55,7 +55,7 @@ export default function GameCard({ game, onPlay }) {
   return (
     <div
       style={styles.card}
-      onClick={() => navigate(`/game/${game.slug}`)}
+      onClick={() => navigate(`/game/${game.slug}`)}   // ⭐ NORMAL CLICK
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "scale(1.05)";
         e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.5)";
@@ -86,7 +86,7 @@ export default function GameCard({ game, onPlay }) {
         <h3 style={styles.title}>{game.title}</h3>
         <p style={styles.genre}>{game.genre}</p>
 
-        {/* ⭐ FIXED — Correct average rating */}
+        {/* ⭐ Rating */}
         <RatingStars
           rating={game.averageRating || 4.0}
           size={18}
@@ -140,6 +140,7 @@ const styles = {
     height: 140,
     objectFit: "cover",
   },
+
   info: {
     padding: "12px",
   },
@@ -153,6 +154,7 @@ const styles = {
     color: "#a5b4fc",
     marginBottom: 6,
   },
+
   playButton: {
     width: "100%",
     padding: "8px",
